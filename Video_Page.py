@@ -30,15 +30,15 @@ class VideoSyncApp(QWidget):
 
         # Left Panel for Upload Buttons and Video Data
         left_panel = QVBoxLayout()
-        self.video_data_1 = QLabel('Video Data\n00:00')
-        self.filename_1 = QLabel('Filename')
-        self.upload_btn_1 = QPushButton('Upload Video 1')
-        self.upload_btn_1.clicked.connect(lambda: self.upload_video(1))
+        video_data_1 = QLabel('Video Data\n00:00')
+        filename_1 = QLabel('Filename')
+        upload_btn_1 = QPushButton('Upload Video 1')
+        upload_btn_1.clicked.connect(lambda: self.upload_video(1))
 
-        self.video_data_3 = QLabel('Video Data\n00:00')
-        self.filename_3 = QLabel('Filename')
-        self.upload_btn_3 = QPushButton('Upload Video 3')
-        self.upload_btn_3.clicked.connect(lambda: self.upload_video(3))
+        video_data_3 = QLabel('Video Data\n00:00')
+        filename_3 = QLabel('Filename')
+        upload_btn_3 = QPushButton('Upload Video 3')
+        upload_btn_3.clicked.connect(lambda: self.upload_video(3))
 
         left_panel.addWidget(self.video_data_1)
         left_panel.addWidget(self.filename_1)
@@ -71,12 +71,15 @@ class VideoSyncApp(QWidget):
         self.video_display_1 = QLabel()
         self.video_display_1.setFixedSize(400, 300)
         self.video_display_1.setStyleSheet("border: 1px solid black;")
+
         self.video_display_2 = QLabel()
         self.video_display_2.setFixedSize(400, 300)
         self.video_display_2.setStyleSheet("border: 1px solid black;")
+
         self.video_display_3 = QLabel()
         self.video_display_3.setFixedSize(400, 300)
         self.video_display_3.setStyleSheet("border: 1px solid black;")
+
         self.video_display_4 = QLabel()
         self.video_display_4.setFixedSize(400, 300)
         self.video_display_4.setStyleSheet("border: 1px solid black;")
@@ -102,6 +105,7 @@ class VideoSyncApp(QWidget):
 
         self.upload_eeg_btn = QPushButton('Upload EEG')
         self.auto_sync_btn = QPushButton('Auto Sync')
+
         slider_panel.addWidget(self.upload_eeg_btn)
         slider_panel.addWidget(self.auto_sync_btn)
 
@@ -122,19 +126,24 @@ class VideoSyncApp(QWidget):
     def upload_video(self, video_num):
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Video File", "", "Video Files (*.mp4 *.avi *.mov);;All Files (*)", options=options)
+
         if file_name:
             if video_num == 1:
                 self.filename_1.setText(f'Filename\n{file_name}')
                 self.filename_1.setWordWrap(True)
+
             elif video_num == 2:
                 self.filename_2.setText(f'Filename\n{file_name}')
                 self.filename_2.setWordWrap(True)
+
             elif video_num == 3:
                 self.filename_3.setText(f'Filename\n{file_name}')
                 self.filename_3.setWordWrap(True)
+
             elif video_num == 4:
                 self.filename_4.setText(f'Filename\n{file_name}')
                 self.filename_4.setWordWrap(True)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
