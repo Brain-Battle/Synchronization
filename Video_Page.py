@@ -1,8 +1,6 @@
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-                             QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame)
-from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
-from PyQt5.QtMultimediaWidgets import QVideoWidget
-from PyQt5.QtCore import Qt, QUrl
+                             QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget)
+from PyQt5.QtCore import Qt
 import sys
 
 class VideoSyncApp(QWidget):
@@ -10,38 +8,81 @@ class VideoSyncApp(QWidget):
         super().__init__()
         self.width = 1200
         self.height = 800
+        # Preventing resizing of window (we know best shut up)
         self.setFixedSize(self.width, self.height)
         self.initUI()
+        # Removing the maximise button functionality
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
 
     def initUI(self):
         self.setWindowTitle('BattleUI')
         screen_geometry = QDesktopWidget().availableGeometry()
 
+        # Calculate x, y position to center window
         screen_center_x = (screen_geometry.width() - self.width) // 2
         screen_center_y = (screen_geometry.height() - self.height) // 2
         self.setGeometry(screen_center_x, screen_center_y, self.width, self.height)
 
         main_layout = QVBoxLayout()
 
+        # Create top layout for video panels and side upload buttons
         top_layout = QHBoxLayout()
 
         # Left Panel for Upload Buttons and Video Data
         left_panel = QVBoxLayout()
-        self.setup_video_controls(left_panel, 1)
-        self.setup_video_controls(left_panel, 3)
+        self.video_data_1 = QLabel('Video Data\n00:00')
+        self.filename_1 = QLabel('Filename')
+        self.upload_btn_1 = QPushButton('Upload Video 1')
+        self.upload_btn_1.clicked.connect(lambda: self.upload_video(1))
+
+        self.video_data_3 = QLabel('Video Data\n00:00')
+        self.filename_3 = QLabel('Filename')
+        self.upload_btn_3 = QPushButton('Upload Video 3')
+        self.upload_btn_3.clicked.connect(lambda: self.upload_video(3))
+
+        left_panel.addWidget(self.video_data_1)
+        left_panel.addWidget(self.filename_1)
+        left_panel.addWidget(self.upload_btn_1)
+        left_panel.addWidget(self.upload_btn_3)
+        left_panel.addWidget(self.video_data_3)
+        left_panel.addWidget(self.filename_3)
 
         # Right Panel for Upload Buttons and Video Data
         right_panel = QVBoxLayout()
-        self.setup_video_controls(right_panel, 2)
-        self.setup_video_controls(right_panel, 4)
+        self.video_data_2 = QLabel('Video Data\n00:00')
+        self.filename_2 = QLabel('Filename')
+        self.upload_btn_2 = QPushButton('Upload Video 2')
+        self.upload_btn_2.clicked.connect(lambda: self.upload_video(2))
+
+        self.video_data_4 = QLabel('Video Data\n00:00')
+        self.filename_4 = QLabel('Filename')
+        self.upload_btn_4 = QPushButton('Upload Video 4')
+        self.upload_btn_4.clicked.connect(lambda: self.upload_video(4))
+
+        right_panel.addWidget(self.video_data_2)
+        right_panel.addWidget(self.filename_2)
+        right_panel.addWidget(self.upload_btn_2)
+        right_panel.addWidget(self.upload_btn_4)
+        right_panel.addWidget(self.video_data_4)
+        right_panel.addWidget(self.filename_4)
 
         # Central Panel for Video Display Grid
         central_panel = QGridLayout()
-        self.video_display_1 = self.create_video_display()
-        self.video_display_2 = self.create_video_display()
-        self.video_display_3 = self.create_video_display()
-        self.video_display_4 = self.create_video_display()
+        self.video_display_1 = QLabel()
+        self.video_display_1.setFixedSize(400, 300)
+        self.video_display_1.setStyleSheet("border: 1px solid black;")
+
+        self.video_display_2 = QLabel()
+        self.video_display_2.setFixedSize(400, 300)
+        self.video_display_2.setStyleSheet("border: 1px solid black;")
+
+        self.video_display_3 = QLabel()
+        self.video_display_3.setFixedSize(400, 300)
+        self.video_display_3.setStyleSheet("border: 1px solid black;")
+
+        self.video_display_4 = QLabel()
+        self.video_display_4.setFixedSize(400, 300)
+        self.video_display_4.setStyleSheet("border: 1px solid black;")
 
         central_panel.addWidget(self.video_display_1, 0, 0)
         central_panel.addWidget(self.video_display_2, 0, 1)
@@ -67,6 +108,7 @@ class VideoSyncApp(QWidget):
         slider_panel.addWidget(self.upload_eeg_btn)
         slider_panel.addWidget(self.auto_sync_btn)
 
+        # EEG Data Display Box
         self.eeg_data_display = QLabel('EEG Data Display')
         self.eeg_data_display.setFixedHeight(50)
         self.eeg_data_display.setStyleSheet("border: 1px solid black;")
@@ -79,45 +121,23 @@ class VideoSyncApp(QWidget):
 
         self.setLayout(main_layout)
 
-    def create_video_display(self):
-        """Creates a QFrame containing a QVideoWidget for video playback."""
-        video_container = QFrame()
-        video_container.setFixedSize(400, 300)
-        video_container.setStyleSheet("border: 1px solid black;")
-
-        # Video Widget
-        video_widget = QVideoWidget(video_container)
-        video_layout = QVBoxLayout(video_container)
-        video_layout.setContentsMargins(0, 0, 0, 0)
-        video_layout.addWidget(video_widget)
-
-        return video_container
-
-    def setup_video_controls(self, layout, video_num):
-        """Sets up upload button, filename label, and video data label for a specific video."""
-        video_data = QLabel(f'Video Data {video_num}\n00:00')
-        filename_label = QLabel('Filename')
-        upload_button = QPushButton(f'Upload Video {video_num}')
-
-        # Setup individual media players for each video
-        media_player = QMediaPlayer(None, QMediaPlayer.VideoSurface)
-
-        # Assign the media player and button to open the file
-        upload_button.clicked.connect(lambda: self.open_video_file(media_player, video_num, filename_label))
-
-        layout.addWidget(video_data)
-        layout.addWidget(filename_label)
-        layout.addWidget(upload_button)
-
-    def open_video_file(self, media_player, video_num, filename_label):
-        """Opens video file dialog and assigns selected video to the media player."""
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open Video File", "",
-                                                   "Video Files (*.mp4 *.avi *.mov);;All Files (*)")
+    # Skeleton for button functionality for uploading videos
+    def upload_video(self, video_num):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open Video File", "", "Video Files (*.mp4 *.avi *.mov);;All Files (*)", options=options)
         if file_name:
-            filename_label.setText(f'Filename\n{file_name}')
-            media_player.setMedia(QMediaContent(QUrl.fromLocalFile(file_name)))
-            # Auto-play or set up additional playback controls here as needed
-
+            if video_num == 1:
+                self.filename_1.setText(f'Filename\n{file_name}')
+                self.filename_1.setWordWrap(True)
+            elif video_num == 2:
+                self.filename_2.setText(f'Filename\n{file_name}')
+                self.filename_2.setWordWrap(True)
+            elif video_num == 3:
+                self.filename_3.setText(f'Filename\n{file_name}')
+                self.filename_3.setWordWrap(True)
+            elif video_num == 4:
+                self.filename_4.setText(f'Filename\n{file_name}')
+                self.filename_4.setWordWrap(True)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
