@@ -1,12 +1,18 @@
 import vlc
-from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame, QSizePolicy
-)
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+                             QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame, QSizePolicy)
+from PyQt5.QtCore import Qt, QTimer
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5.QtCore import Qt, QTimer
 import sys
 import ffmpeg
 import os
+import VideoMerger.Videomerger as merger
+import datetime
+import pandas as pd
 
 class AspectRatioFrame(QFrame):
     def resizeEvent(self, event):
@@ -131,33 +137,42 @@ class VideoSyncApp(QWidget):
         self.video_display_1.resize(400, 225)
         self.video_display_1.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
         self.video_display_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_display_1.setMaximumSize(600, 338)
 
         self.video_display_2 = AspectRatioFrame(self)
         self.video_display_2.resize(400, 225)
         self.video_display_2.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
         self.video_display_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_display_2.setMaximumSize(600, 338)
 
         self.video_display_3 = AspectRatioFrame(self)
         self.video_display_3.resize(400, 225)
         self.video_display_3.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
         self.video_display_3.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_display_3.setMaximumSize(600, 338)
 
         self.video_display_4 = AspectRatioFrame(self)
         self.video_display_4.resize(400, 225)
         self.video_display_4.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
         self.video_display_4.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_display_4.setMaximumSize(600, 338)
 
         self.video_widgets = [self.video_display_1, self.video_display_2, self.video_display_3, self.video_display_4]
 
+        # EEG Plot Panel 1
         self.eeg_data_display_1 = QLabel('EEG Data Display 1')
-        self.eeg_data_display_1.setMaximumSize(672, 100)
+        self.eeg_data_display_1 = QFrame()  # Use QFrame as a container
+        self.eeg_data_display_1.setFixedSize(600, 250)
         self.eeg_data_display_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.eeg_data_display_1.setStyleSheet("border: 1px solid black;")
+        self.eeg_data_display_1.setStyleSheet("border: 2px solid black;")
+        self.eeg_plot_layout_1 = QVBoxLayout(self.eeg_data_display_1)
 
+        # EEG Plot Panel 2
         self.eeg_data_display_2 = QLabel('EEG Data Display 2')
-        self.eeg_data_display_2.setMaximumSize(672, 100)
-        self.eeg_data_display_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.eeg_data_display_2.setStyleSheet("border: 1px solid black;")
+        self.eeg_data_display_2 = QFrame()  # Use QFrame as a container
+        self.eeg_data_display_2.setFixedSize(600, 250)
+        self.eeg_data_display_2.setStyleSheet("border: 2px solid black;")
+        self.eeg_plot_layout_2 = QVBoxLayout(self.eeg_data_display_2)
 
         self.time_slider = QSlider(Qt.Horizontal)
         self.time_slider.setValue(0)
@@ -179,14 +194,14 @@ class VideoSyncApp(QWidget):
         slider_panel = QHBoxLayout()
         slider_panel_2 = QHBoxLayout()
 
-
         self.timecode_checkbox = QCheckBox('Timecode')
         slider_panel_2.addWidget(self.timecode_checkbox)
 
         self.upload_eeg_btn_1 = QPushButton('Upload EEG 1')
-        self.upload_eeg_btn_1.setStyleSheet("background-color: #FFFFFF;")
-
+        self.upload_eeg_btn_1.clicked.connect(self.upload_eeg_1)
         self.upload_eeg_btn_2 = QPushButton('Upload EEG 2')
+        self.upload_eeg_btn_2.clicked.connect(self.upload_eeg_2)
+        self.upload_eeg_btn_1.setStyleSheet("background-color: #FFFFFF;")
         self.upload_eeg_btn_2.setStyleSheet("background-color: #FFFFFF;")
 
         self.auto_sync_btn = QPushButton('Auto Sync')
@@ -256,27 +271,17 @@ class VideoSyncApp(QWidget):
             return
 
         try:
-            # Temporary resized video file names
-            resized_files = [f"resized_video_{i}.mp4" for i in range(4)]
-
-            # Resize all videos to 640x360
-            for i, file_path in enumerate(file_paths):
-                ffmpeg.input(file_path).filter('scale', 640, 360).output(resized_files[i]).run()
-
-            # Merge videos into a 2x2 grid using the xstack filter
-            grid_layout = "0_0|w0_0|0_h0|w0_h0"  # Arrange in 2x2 grid
-            streams = [ffmpeg.input(resized_file) for resized_file in resized_files]
-            ffmpeg.filter(streams, 'xstack', inputs=4, layout=grid_layout).output(output_file).run()
+            producer = merger.VideoMerger()
+            producer.video_input(file_paths[0], 0, 0)
+            producer.video_input(file_paths[1], 0, 1)
+            producer.video_input(file_paths[2], 1, 0)
+            producer.video_input(file_paths[3], 1, 1)
+            producer.export(output_file, threads=4)
 
         except Exception as e:
             print(f"Error while exporting video: {e}")
         else:
             print(f"Merged video successfully exported to {output_file}.")
-        finally:
-            # Clean up temporary files
-            for resized_file in resized_files:
-                if os.path.exists(resized_file):
-                    os.remove(resized_file)
 
 
     def play_pause_all_videos(self):
@@ -286,6 +291,57 @@ class VideoSyncApp(QWidget):
                     player.pause()
                 else:
                     player.play()
+
+    def upload_eeg_1(self):
+        # File dialog to select the EEG CSV file
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Open EEG File", "", "CSV Files (*.csv);;All Files (*)", options=options
+        )
+        if file_name:
+            self.process_and_plot_eeg_1(file_name)
+
+    def upload_eeg_2(self):
+        # File dialog to select the EEG CSV file
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Open EEG File", "", "CSV Files (*.csv);;All Files (*)", options=options
+        )
+        if file_name:
+            self.process_and_plot_eeg_2(file_name)   
+
+
+    def process_and_plot_eeg_1(self, file_name):
+        CONVERT_TO_DATETIME = False
+        PULL_TO_EPOCH = False
+
+        df = pd.read_csv(file_name)
+
+        if CONVERT_TO_DATETIME:
+            initial_timestamp = df["timestamps"][0]
+            df["timestamps"] = df["timestamps"].apply(lambda x: datetime.fromtimestamp(x - initial_timestamp))
+
+        fig, axs = plt.subplots(4, 1, sharex=True, sharey=False, layout="constrained")
+        axs = axs.flatten()
+        
+        axs[0].plot(df["timestamps"], df["TP9"], color="blue", linewidth=1)
+        axs[1].plot(df["timestamps"], df["AF7"], color="purple", linewidth=1)
+        axs[2].plot(df["timestamps"], df["TP10"], color="cyan", linewidth=1)
+        axs[3].plot(df["timestamps"], df["AF8"], color="pink", linewidth=1)
+    
+        for ax in axs:
+            ax.legend(fontsize=5)
+            ax.grid(True)
+
+        fig.suptitle("EEG Plot 1", fontsize=8)
+
+        if CONVERT_TO_DATETIME and PULL_TO_EPOCH:
+            axs[-1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+
+        fig.tight_layout()
+
+        canvas = FigureCanvas(fig)
+        self.eeg_plot_layout_1.addWidget(canvas)
 
     def update_video_positions(self):
         position_percentage = self.time_slider.value() / 100
@@ -315,8 +371,57 @@ class VideoSyncApp(QWidget):
                     self.time_slider.setValue(slider_value)
                     self.time_slider.blockSignals(False)
 
+
+    def process_and_plot_eeg_2(self, file_name):
+        CONVERT_TO_DATETIME = False
+        PULL_TO_EPOCH = False
+
+        df = pd.read_csv(file_name)
+
+        if CONVERT_TO_DATETIME:
+            initial_timestamp = df["timestamps"][0]
+            df["timestamps"] = df["timestamps"].apply(lambda x: datetime.fromtimestamp(x - initial_timestamp))
+
+        fig, axs = plt.subplots(4, 1, sharex=True, layout="constrained")
+        axs = axs.flatten()
+
+        axs[0].plot(df["timestamps"], df["TP9"], color="red", linewidth=1)
+        axs[1].plot(df["timestamps"], df["AF7"], color="orange", linewidth=1)
+        axs[2].plot(df["timestamps"], df["TP10"], color="green", linewidth=1)
+        axs[3].plot(df["timestamps"], df["AF8"], color="blue", linewidth=1)
+
+        for ax in axs:
+            ax.legend(fontsize=5)
+            ax.grid(True)
+
+        fig.suptitle("EEG Plot 2", fontsize=8)
+
+        if CONVERT_TO_DATETIME and PULL_TO_EPOCH:
+            axs[-1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+
+        fig.tight_layout()
+
+        canvas = FigureCanvas(fig)
+        self.eeg_plot_layout_2.addWidget(canvas)
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = VideoSyncApp()
     ex.show()
     sys.exit(app.exec_())
+
+
+# Audio analysis libraries
+# - Find the time difference between video clips via their audio.
+# Synchronizing videos
+# The edit video button
+# Bakhshi & Stef
+
+# EEG Data Progress Bar
+# Muhammad
+
+# Error handling
+# Documentation
+# Popup errors/warnings/info
+# Aryan & Yasin

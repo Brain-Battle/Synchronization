@@ -1,1 +1,4 @@
-.idea
+.idea/
+*.MTS
+*.MP4
+__pycache__
