@@ -98,14 +98,14 @@ def find_longest_vid(video_paths) -> int:
 
 def process_audio(video_path):
     video = VideoFileClip(video_path)
-    audio_iter = video.audio.iter_frames()
+    audio = video.audio.to_soundarray().T
     total_frames = int(video.audio.fps * video.audio.duration)
 
     audio_samples = []
 
     def frame_callback(frame_count):
         try:
-            frame = next(audio_iter)
+            frame = next(audio)
             audio_samples.append(frame)
             return frame_count + 1
         except StopIteration:
@@ -114,7 +114,6 @@ def process_audio(video_path):
     show_progress_bar(video_path, total_frames, frame_callback)
 
     # Convert collected frames to numpy array and process stereo to mono
-    audio = np.array(audio_samples, dtype=np.float32).T
     final_audio = (audio[0] + audio[1]) / 2.0
     print(f"Audio processing complete for {get_file_name(video_path)}.")
     return final_audio
