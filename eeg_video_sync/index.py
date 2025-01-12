@@ -2,7 +2,7 @@ import ffmpeg
 import datetime as dt
 import pandas as pd
 
-video_metadata = ffmpeg.probe(r"C:\Users\enesy\Videos\Brain Battle\Synch App\Synchronization\eeg_video_sync\Round1.MOV")
+video_metadata = ffmpeg.probe(r"C:\Users\enesy\Videos\Brain Battle\eeg_video_sync\Round1.MOV")
 
 creation_time = video_metadata["streams"][0]["tags"]["creation_time"]
 
@@ -11,7 +11,7 @@ print(date_time)
 print(date_time.timestamp())
 
 # Full path of the CSV file
-PATH = r"C:\Users\enesy\Videos\Brain Battle\Synch App\Synchronization\eeg_video_sync\EEG_recording_2024-11-16-09.47.06.csv"
+PATH = r"C:\Users\enesy\Videos\Brain Battle\eeg_video_sync\EEG_recording_2024-11-16-09.47.06.csv"
 df = pd.read_csv(PATH)
 
 initial_timestamp = df["timestamps"][0]
