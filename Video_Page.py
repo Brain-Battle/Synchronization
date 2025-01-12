@@ -8,6 +8,8 @@ import sys
 import ffmpeg
 import os
 
+from prototype import autosync
+
 class AspectRatioFrame(QFrame):
     def resizeEvent(self, event):
         # Get the new width and calculate height based on 16:9 aspect ratio
@@ -191,6 +193,7 @@ class VideoSyncApp(QWidget):
 
         self.auto_sync_btn = QPushButton('Auto Sync')
         self.auto_sync_btn.setStyleSheet("background-color: #FFFFFF;")
+        self.auto_sync_btn.clicked.connect(self.auto_sync_videos)
 
         slider_panel_2.addWidget(self.upload_eeg_btn_1)
         slider_panel_2.addWidget(self.upload_eeg_btn_2)
@@ -213,6 +216,36 @@ class VideoSyncApp(QWidget):
         main_layout.addLayout(bottom_panel)
 
         self.setLayout(main_layout)
+
+    def auto_sync_videos(self):
+        # Collect video paths (ensure all videos are uploaded)
+        video_paths = [path for path in self.video_paths if path]
+
+        if len(video_paths) < 2:
+            print("Please upload at least two videos before syncing.")
+            return
+
+        try:
+            # Call the autosync function to calculate delays
+            delays = autosync(video_paths)
+
+            # Find the longest video's delay (it will serve as the reference)
+            reference_delay = min(delays)
+
+            # Adjust the playback positions of all videos relative to the reference
+            for i, delay in enumerate(delays):
+                if self.media_players[i]:  # Ensure the VLC media player exists
+                    # Calculate the relative delay (positive or negative)
+                    relative_delay = delay - reference_delay
+
+                    # Adjust the starting position (in milliseconds)
+                    start_position_ms = max(0, int(relative_delay * 1000))  # VLC expects milliseconds
+                    self.media_players[i].set_time(start_position_ms)
+
+            print("Videos have been synced successfully.")
+
+        except Exception as e:
+            print(f"Error during autosync: {e}")
 
     def upload_video(self, video_num):
         options = QFileDialog.Options()
