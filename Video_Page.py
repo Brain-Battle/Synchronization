@@ -7,6 +7,13 @@ from PyQt5.QtCore import Qt, QTimer
 import sys
 import ffmpeg
 import os
+import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import numpy as np
+from datetime import datetime
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 class AspectRatioFrame(QFrame):
     def resizeEvent(self, event):
@@ -153,11 +160,13 @@ class VideoSyncApp(QWidget):
         self.eeg_data_display_1.setMaximumSize(672, 100)
         self.eeg_data_display_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.eeg_data_display_1.setStyleSheet("border: 1px solid black;")
+        self.eeg_data_display_1 = QFrame()  # Use QFrame as a container
 
         self.eeg_data_display_2 = QLabel('EEG Data Display 2')
         self.eeg_data_display_2.setMaximumSize(672, 100)
         self.eeg_data_display_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.eeg_data_display_2.setStyleSheet("border: 1px solid black;")
+        self.eeg_data_display_2 = QFrame()  # Use QFrame as a container
 
         self.time_slider = QSlider(Qt.Horizontal)
         self.time_slider.setValue(0)
@@ -185,9 +194,11 @@ class VideoSyncApp(QWidget):
 
         self.upload_eeg_btn_1 = QPushButton('Upload EEG 1')
         self.upload_eeg_btn_1.setStyleSheet("background-color: #FFFFFF;")
+        self.upload_eeg_btn_1.clicked.connect(self.upload_eeg_1)
 
         self.upload_eeg_btn_2 = QPushButton('Upload EEG 2')
         self.upload_eeg_btn_2.setStyleSheet("background-color: #FFFFFF;")
+        self.upload_eeg_btn_2.clicked.connect(self.upload_eeg_2)
 
         self.auto_sync_btn = QPushButton('Auto Sync')
         self.auto_sync_btn.setStyleSheet("background-color: #FFFFFF;")
@@ -314,6 +325,121 @@ class VideoSyncApp(QWidget):
                     self.time_slider.blockSignals(True)
                     self.time_slider.setValue(slider_value)
                     self.time_slider.blockSignals(False)
+    def upload_eeg_1(self):
+        # File dialog to select the EEG CSV file
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Open EEG File", "", "CSV Files (*.csv);;All Files (*)", options=options
+        )
+        if file_name:
+            self.process_and_plot_eeg_1(file_name)
+
+    def upload_eeg_2(self):
+        # File dialog to select the EEG CSV file
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Open EEG File", "", "CSV Files (*.csv);;All Files (*)", options=options
+        )
+        if file_name:
+            self.process_and_plot_eeg_2(file_name)
+
+    def process_and_plot_eeg_1(self, file_name):
+      CONVERT_TO_DATETIME = False
+      PULL_TO_EPOCH = False
+
+      df = pd.read_csv(file_name)
+
+      if CONVERT_TO_DATETIME:
+          initial_timestamp = df["timestamps"][0]
+          df["timestamps"] = df["timestamps"].apply(lambda x: datetime.fromtimestamp(x - initial_timestamp))
+
+      fig, axs = plt.subplots(2, 2, sharex=True, sharey=False, layout="constrained", figsize=(5, 3))
+      axs = axs.flatten()
+
+      axs[0].plot(df["timestamps"], df["TP9"], color="blue", linewidth=2)
+      axs[1].plot(df["timestamps"], df["AF7"], color="purple", linewidth=2)
+      axs[2].plot(df["timestamps"], df["TP10"], color="cyan", linewidth=2)
+      axs[3].plot(df["timestamps"], df["AF8"], color="pink", linewidth=2)
+
+      for ax in axs:
+          ax.legend(fontsize=5)
+          ax.grid(True)
+
+      fig.suptitle("EEG Plot 1", fontsize=8)
+
+      if CONVERT_TO_DATETIME and PULL_TO_EPOCH:
+          axs[-1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+
+      fig.tight_layout()
+
+      # Create a FigureCanvas and NavigationToolbar
+      canvas = FigureCanvas(fig)
+      toolbar = NavigationToolbar(canvas, self)
+      toolbar.setFixedHeight(25)
+
+      # Clear existing widgets from the display
+      layout = self.eeg_data_display_1.layout()
+      if layout is None:
+          layout = QVBoxLayout(self.eeg_data_display_1)
+      else:
+          while layout.count():
+              item = layout.takeAt(0)
+              widget = item.widget()
+              if widget is not None:
+                  widget.deleteLater()
+
+      # Add the toolbar and canvas to the layout
+      layout.addWidget(toolbar)
+      layout.addWidget(canvas)
+
+    def process_and_plot_eeg_2(self, file_name):
+      CONVERT_TO_DATETIME = False
+      PULL_TO_EPOCH = False
+
+      df = pd.read_csv(file_name)
+
+      if CONVERT_TO_DATETIME:
+          initial_timestamp = df["timestamps"][0]
+          df["timestamps"] = df["timestamps"].apply(lambda x: datetime.fromtimestamp(x - initial_timestamp))
+
+      fig, axs = plt.subplots(2, 2, sharex=True, sharey=False, layout="constrained", figsize=(5, 3))
+      axs = axs.flatten()
+
+      axs[0].plot(df["timestamps"], df["TP9"], color="blue", linewidth=2)
+      axs[1].plot(df["timestamps"], df["AF7"], color="purple", linewidth=2)
+      axs[2].plot(df["timestamps"], df["TP10"], color="cyan", linewidth=2)
+      axs[3].plot(df["timestamps"], df["AF8"], color="pink", linewidth=2)
+
+      for ax in axs:
+          ax.legend(fontsize=5)
+          ax.grid(True)
+
+      fig.suptitle("EEG Plot 2", fontsize=8)
+
+      if CONVERT_TO_DATETIME and PULL_TO_EPOCH:
+          axs[-1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+
+      fig.tight_layout()
+
+      # Create a FigureCanvas and NavigationToolbar
+      canvas = FigureCanvas(fig)
+      toolbar = NavigationToolbar(canvas, self)
+      toolbar.setFixedHeight(25)
+
+      # Clear existing widgets from the display
+      layout = self.eeg_data_display_2.layout()
+      if layout is None:
+          layout = QVBoxLayout(self.eeg_data_display_2)
+      else:
+          while layout.count():
+              item = layout.takeAt(0)
+              widget = item.widget()
+              if widget is not None:
+                  widget.deleteLater()
+
+      # Add the toolbar and canvas to the layout
+      layout.addWidget(toolbar)
+      layout.addWidget(canvas)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
