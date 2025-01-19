@@ -12,7 +12,7 @@ CONVERT_TO_DATETIME = True
 PULL_TO_EPOCH = False
 
 # Full path of the CSV file
-PATH = r"C:\Users\enesy\Videos\Brain Battle\Synch App\Synchronization\eeg_video_sync\EEG_recording_2024-11-16-09.47.06.csv"
+PATH = r"E:\Fall Semester 2024\eeg data\recording_2023-12-21-10.21.25.csv"
 df = pd.read_csv(PATH)
 
 if CONVERT_TO_DATETIME:
