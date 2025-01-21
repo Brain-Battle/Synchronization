@@ -1,7 +1,7 @@
 import ffmpeg
 import datetime as dt
 import pandas as pd
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
 import sys
 
 # Paths to the video and CSV
@@ -56,7 +56,7 @@ try:
             sys.exit(1)
 
         # Create and save the adjusted subclip
-        adjusted_video = video.subclip(start_time, end_time)
+        adjusted_video = video.subclipped(start_time, end_time)
         adjusted_video.write_videofile(output_path, codec="libx264")
         print(f"Adjusted video saved to: {output_path}")
 
