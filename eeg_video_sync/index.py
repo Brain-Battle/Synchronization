@@ -5,9 +5,9 @@ from moviepy.editor import VideoFileClip
 import sys
 
 # Paths to the video and CSV
-video_path = r"E:\Fall Semester 2024\Videos\Round 1.MOV"
+video_path = r"E:\Fall Semester 2024\Videos\Round 2.MOV"
 csv_path = r"E:\Fall Semester 2024\eeg data\EEG_recording_2024-11-16-09.47.06.csv"
-output_path = r"E:\Fall Semester 2024\Videos\Adjusted_Video2.mp4"
+output_path = r"E:\Fall Semester 2024\Videos\Adjusted_Video4.mp4"
 
 try:
     # Extract video creation time
@@ -34,14 +34,14 @@ try:
         print(f"Video duration: {video_duration} seconds")
 
         # Adjust start and end times
-        if time_difference < 0:
+        if time_difference > 0:
             # Video starts later than CSV
             start_time = abs(time_difference)
             end_time = video_duration
         else:
             # Video starts earlier or at the same time as CSV
             start_time = 0
-            end_time = video_duration - time_difference
+            end_time = video_duration - abs(time_difference)
 
         # Clamp start and end times to valid video ranges
         start_time = max(0, start_time)
