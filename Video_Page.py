@@ -1,137 +1,445 @@
-import os
-import ffmpeg
-import pandas as pd
+import vlc
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QFileDialog, QProgressBar, QStackedWidget, QTextBrowser, QMessageBox, QDesktopWidget
+    QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer
 import sys
+import ffmpeg
+import os
+import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import numpy as np
+from datetime import datetime
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+
+class AspectRatioFrame(QFrame):
+    def resizeEvent(self, event):
+        # Get the new width and calculate height based on 16:9 aspect ratio
+        width = self.width()
+        height = int(width * 9 / 16)
+
+        # Set the fixed size for the QFrame
+        self.setFixedHeight(height)
+        super().resizeEvent(event)
+
 
 class VideoSyncApp(QWidget):
     def __init__(self):
         super().__init__()
+        self.width = 1200
+        self.height = 800
+        self.media_players = [None, None, None, None]
+        self.video_widgets = [None, None, None, None]
+        self.video_paths = [None, None, None, None]
         self.initUI()
+        self.timer = QTimer(self)
+        self.timer.setInterval(100)
+        self.timer.timeout.connect(self.update_slider_position)
+        self.timer.start()
 
     def initUI(self):
-        self.setWindowTitle('VideoSyncApp')
-        self.setGeometry(100, 100, 800, 600)
+        self.setWindowTitle('BattleUI')
+        self.setStyleSheet("background-color: #F3F3F1;")
+        screen_geometry = QDesktopWidget().availableGeometry()
+        screen_center_x = (screen_geometry.width() - self.width) // 2
+        screen_center_y = (screen_geometry.height() - self.height) // 2
+        self.setGeometry(screen_center_x, screen_center_y, self.width, self.height)
 
-        # Main Layout
         main_layout = QVBoxLayout()
+        top_layout = QHBoxLayout()
 
-        # Help Button for Tutorial
-        self.help_button = QPushButton("Help", self)
-        self.help_button.clicked.connect(self.show_tutorial)
-        main_layout.addWidget(self.help_button, alignment=Qt.AlignRight)
+        # Left panel with buttons for Video 1 (top) and Video 3 (bottom)
+        left_panel = QVBoxLayout()
 
-        # Auto-Process Button
-        self.auto_process_button = QPushButton("Auto Process", self)
-        self.auto_process_button.clicked.connect(self.auto_process)
-        main_layout.addWidget(self.auto_process_button)
+        # Video 1: Top video, Edit button above Upload button
+        self.edit_btn_1 = QPushButton('Edit Video 1')
+        self.edit_btn_1.setStyleSheet("background-color: #FFFFFF;")
+        self.edit_btn_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # Progress Bar
-        self.progress_bar = QProgressBar(self)
-        main_layout.addWidget(self.progress_bar)
+        self.video_data_1 = QLabel('Video Data\n00:00')
+        self.filename_1 = QLabel('Filename')
 
-        # Status Label
-        self.status_label = QLabel("Status: Ready", self)
-        main_layout.addWidget(self.status_label)
+        self.upload_btn_1 = QPushButton('Upload Video 1')
+        self.upload_btn_1.setStyleSheet("background-color: #FFFFFF;")
+        self.upload_btn_1.clicked.connect(lambda: self.upload_video(1))
+        self.upload_btn_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        left_panel.addWidget(self.video_data_1)
+        left_panel.addWidget(self.filename_1)
+        left_panel.addWidget(self.edit_btn_1)
+        left_panel.addWidget(self.upload_btn_1)
+
+        # Video 3: Bottom video, Edit button below Upload button
+        self.video_data_3 = QLabel('Video Data\n00:00')
+        self.filename_3 = QLabel('Filename')
+
+        self.upload_btn_3 = QPushButton('Upload Video 3')
+        self.upload_btn_3.setStyleSheet("background-color: #FFFFFF;")
+        self.upload_btn_3.clicked.connect(lambda: self.upload_video(3))
+        self.upload_btn_3.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        self.edit_btn_3 = QPushButton('Edit Video 3')
+        self.edit_btn_3.setStyleSheet("background-color: #FFFFFF;")
+        self.edit_btn_3.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        left_panel.addWidget(self.upload_btn_3)
+        left_panel.addWidget(self.edit_btn_3)
+        left_panel.addWidget(self.video_data_3)
+        left_panel.addWidget(self.filename_3)
+
+        # Right panel with buttons for Video 2 (top) and Video 4 (bottom)
+        right_panel = QVBoxLayout()
+
+        # Video 2: Top video, Edit button above Upload button
+        self.edit_btn_2 = QPushButton('Edit Video 2')
+        self.edit_btn_2.setStyleSheet("background-color: #FFFFFF;")
+        self.edit_btn_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        self.video_data_2 = QLabel('Video Data\n00:00')
+        self.filename_2 = QLabel('Filename')
+
+        self.upload_btn_2 = QPushButton('Upload Video 2')
+        self.upload_btn_2.setStyleSheet("background-color: #FFFFFF;")
+        self.upload_btn_2.clicked.connect(lambda: self.upload_video(2))
+        self.upload_btn_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        right_panel.addWidget(self.video_data_2)
+        right_panel.addWidget(self.filename_2)
+        right_panel.addWidget(self.edit_btn_2)
+        right_panel.addWidget(self.upload_btn_2)
+
+        # Video 4: Bottom video, Edit button below Upload button
+        self.video_data_4 = QLabel('Video Data\n00:00')
+        self.filename_4 = QLabel('Filename')
+
+        self.upload_btn_4 = QPushButton('Upload Video 4')
+        self.upload_btn_4.setStyleSheet("background-color: #FFFFFF;")
+        self.upload_btn_4.clicked.connect(lambda: self.upload_video(4))
+        self.upload_btn_4.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        self.edit_btn_4 = QPushButton('Edit Video 4')
+        self.edit_btn_4.setStyleSheet("background-color: #FFFFFF;")
+        self.edit_btn_4.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        right_panel.addWidget(self.upload_btn_4)
+        right_panel.addWidget(self.edit_btn_4)
+        right_panel.addWidget(self.video_data_4)
+        right_panel.addWidget(self.filename_4)
+
+        # Central panel for video displays
+        central_panel = QGridLayout()
+        central_panel.setSpacing(0)  # Remove gaps between videos
+        central_panel.setContentsMargins(0, 0, 0, 0)  # Remove margins around the grid
+
+        self.video_display_1 = AspectRatioFrame(self)
+        self.video_display_1.resize(400, 225)
+        self.video_display_1.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
+        self.video_display_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        self.video_display_2 = AspectRatioFrame(self)
+        self.video_display_2.resize(400, 225)
+        self.video_display_2.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
+        self.video_display_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        self.video_display_3 = AspectRatioFrame(self)
+        self.video_display_3.resize(400, 225)
+        self.video_display_3.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
+        self.video_display_3.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        self.video_display_4 = AspectRatioFrame(self)
+        self.video_display_4.resize(400, 225)
+        self.video_display_4.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
+        self.video_display_4.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        self.video_widgets = [self.video_display_1, self.video_display_2, self.video_display_3, self.video_display_4]
+
+        self.eeg_data_display_1 = QLabel('EEG Data Display 1')
+        self.eeg_data_display_1.setMaximumSize(672, 100)
+        self.eeg_data_display_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.eeg_data_display_1.setStyleSheet("border: 1px solid black;")
+        self.eeg_data_display_1 = QFrame()  # Use QFrame as a container
+
+        self.eeg_data_display_2 = QLabel('EEG Data Display 2')
+        self.eeg_data_display_2.setMaximumSize(672, 100)
+        self.eeg_data_display_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.eeg_data_display_2.setStyleSheet("border: 1px solid black;")
+        self.eeg_data_display_2 = QFrame()  # Use QFrame as a container
+
+        self.time_slider = QSlider(Qt.Horizontal)
+        self.time_slider.setValue(0)
+        self.time_slider.sliderReleased.connect(self.update_video_positions)
+
+        central_panel.addWidget(self.video_display_1, 0, 0)
+        central_panel.addWidget(self.video_display_2, 0, 1)
+        central_panel.addWidget(self.video_display_3, 1, 0)
+        central_panel.addWidget(self.video_display_4, 1, 1)
+        central_panel.addWidget(self.eeg_data_display_1, 2, 0)
+        central_panel.addWidget(self.eeg_data_display_2, 2, 1)
+        central_panel.addWidget(self.time_slider, 4, 0, 1, 2)
+        # Add stretch factors to layouts
+        top_layout.addLayout(left_panel, 1)  # Fixed size
+        top_layout.addLayout(central_panel, 5)  # Videos grow
+        top_layout.addLayout(right_panel, 1)  # Fixed size
+
+        bottom_panel = QVBoxLayout()
+        slider_panel = QHBoxLayout()
+        slider_panel_2 = QHBoxLayout()
+
+
+        self.timecode_checkbox = QCheckBox('Timecode')
+        slider_panel_2.addWidget(self.timecode_checkbox)
+
+        self.upload_eeg_btn_1 = QPushButton('Upload EEG 1')
+        self.upload_eeg_btn_1.setStyleSheet("background-color: #FFFFFF;")
+        self.upload_eeg_btn_1.clicked.connect(self.upload_eeg_1)
+
+        self.upload_eeg_btn_2 = QPushButton('Upload EEG 2')
+        self.upload_eeg_btn_2.setStyleSheet("background-color: #FFFFFF;")
+        self.upload_eeg_btn_2.clicked.connect(self.upload_eeg_2)
+
+        self.auto_sync_btn = QPushButton('Auto Sync')
+        self.auto_sync_btn.setStyleSheet("background-color: #FFFFFF;")
+
+        slider_panel_2.addWidget(self.upload_eeg_btn_1)
+        slider_panel_2.addWidget(self.upload_eeg_btn_2)
+        slider_panel_2.addWidget(self.auto_sync_btn)
+
+        self.play_pause_btn = QPushButton('Play/Pause')
+        self.play_pause_btn.setStyleSheet("background-color: #FFFFFF;")
+        self.play_pause_btn.clicked.connect(self.play_pause_all_videos)
+        slider_panel_2.addWidget(self.play_pause_btn)
+
+        self.export_btn = QPushButton('Export')
+        self.export_btn.setStyleSheet("background-color: #FFFFFF;")
+        self.export_btn.clicked.connect(self.merge_videos)
+        slider_panel_2.addWidget(self.export_btn)
+
+        bottom_panel.addLayout(slider_panel)
+        bottom_panel.addLayout(slider_panel_2)
+
+        main_layout.addLayout(top_layout)
+        main_layout.addLayout(bottom_panel)
 
         self.setLayout(main_layout)
 
-    def show_tutorial(self):
-        tutorial_window = QWidget()
-        tutorial_window.setWindowTitle("App Tutorial")
-        tutorial_window.setGeometry(150, 150, 600, 400)
+    def upload_video(self, video_num):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open Video File", "",
+                                                   "Video Files (*.mp4 *.avi *.mov);;All Files (*)", options=options)
+        if file_name:
+            self.video_paths[video_num - 1] = file_name
+            if not self.media_players[video_num - 1]:
+                self.media_players[video_num - 1] = vlc.MediaPlayer()
+                self.media_players[video_num - 1].set_hwnd(int(self.video_widgets[video_num - 1].winId()))
 
-        layout = QVBoxLayout()
+            media = vlc.Media(file_name)
+            self.media_players[video_num - 1].set_media(media)
 
-        tutorial_text = QTextBrowser()
-        tutorial_text.setText(
-            """
-            <h1>Welcome to VideoSyncApp Tutorial</h1>
-            <p>1. <b>Upload Videos:</b> Use the 'Upload' buttons to add your videos.</p>
-            <p>2. <b>Edit Videos:</b> Click 'Edit' for trimming or resizing options.</p>
-            <p>3. <b>EEG Processing:</b> Upload EEG CSV files for visualization.</p>
-            <p>4. <b>Auto Process:</b> Organize your videos and EEG files in a folder structure, and let the app process them automatically.</p>
-            <p>5. <b>Export:</b> Use the 'Export' button to save merged videos and EEG data.</p>
-            """
-        )
-        layout.addWidget(tutorial_text)
+            filename_label = getattr(self, f"filename_{video_num}")
+            filename_label.setText(f"Filename:\n{file_name}")
+            filename_label.setWordWrap(True)
 
-        close_button = QPushButton("Close", tutorial_window)
-        close_button.clicked.connect(tutorial_window.close)
-        layout.addWidget(close_button)
+    def merge_videos(self):
+        # Collect file paths for all videos
+        file_paths = []
+        for i in range(1, 5):  # Loop for videos 1 to 4
+            filename_label = getattr(self, f"filename_{i}")
+            file_path = filename_label.text().replace("Filename:\n", "").strip()
+            if file_path:
+                file_paths.append(file_path)
+            else:
+                print(f"Video {i} has not been loaded.")
+                return
 
-        tutorial_window.setLayout(layout)
-        tutorial_window.show()
-
-    def auto_process(self):
-        folder_path = QFileDialog.getExistingDirectory(self, "Select Main Folder")
-        if not folder_path:
-            QMessageBox.warning(self, "Error", "No folder selected.")
+        # Check if all four videos are loaded
+        if len(file_paths) != 4:
+            print("Please load all four videos before exporting.")
             return
 
-        subfolders = [os.path.join(folder_path, d) for d in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, d))]
-        total_subfolders = len(subfolders)
-
-        if total_subfolders == 0:
-            QMessageBox.warning(self, "Error", "No subfolders found in the selected directory.")
+        # Output file name
+        output_file = QFileDialog.getSaveFileName(
+            self, "Save Merged Video", "", "Video Files (*.mp4 *.avi *.mov);;All Files (*)"
+        )[0]
+        if not output_file:
             return
 
-        self.progress_bar.setMaximum(total_subfolders)
-
-        for index, subfolder in enumerate(subfolders):
-            self.status_label.setText(f"Processing folder: {subfolder}")
-            QApplication.processEvents()
-
-            # Process files in subfolder
-            self.process_folder(subfolder)
-
-            # Update progress bar
-            self.progress_bar.setValue(index + 1)
-
-        self.status_label.setText("Processing complete.")
-        QMessageBox.information(self, "Success", "All folders have been processed.")
-
-    def process_folder(self, folder_path):
-        video_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(('.mp4', '.avi', '.mov'))]
-        csv_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.csv')]
-
-        if len(video_files) < 4 or len(csv_files) < 1:
-            print(f"Insufficient files in {folder_path}. Skipping.")
-            return
-
-        # Assume the first CSV file for EEG processing
-        eeg_file = csv_files[0]
-        self.plot_eeg(eeg_file)
-
-        # Merge videos (example implementation)
-        output_video = os.path.join(folder_path, "merged_output.mp4")
         try:
-            resized_files = [f"{folder_path}/resized_{i}.mp4" for i in range(4)]
+            # Temporary resized video file names
+            resized_files = [f"resized_video_{i}.mp4" for i in range(4)]
 
-            for i, video in enumerate(video_files[:4]):
-                ffmpeg.input(video).filter('scale', 640, 360).output(resized_files[i]).run()
+            # Resize all videos to 640x360
+            for i, file_path in enumerate(file_paths):
+                ffmpeg.input(file_path).filter('scale', 640, 360).output(resized_files[i]).run()
 
-            grid_layout = "0_0|w0_0|0_h0|w0_h0"
-            streams = [ffmpeg.input(file) for file in resized_files]
-            ffmpeg.filter(streams, 'xstack', inputs=4, layout=grid_layout).output(output_video).run()
+            # Merge videos into a 2x2 grid using the xstack filter
+            grid_layout = "0_0|w0_0|0_h0|w0_h0"  # Arrange in 2x2 grid
+            streams = [ffmpeg.input(resized_file) for resized_file in resized_files]
+            ffmpeg.filter(streams, 'xstack', inputs=4, layout=grid_layout).output(output_file).run()
 
-            print(f"Merged video saved to {output_video}")
         except Exception as e:
-            print(f"Error processing folder {folder_path}: {e}")
-
+            print(f"Error while exporting video: {e}")
+        else:
+            print(f"Merged video successfully exported to {output_file}.")
         finally:
-            # Clean up temporary resized files
-            for file in resized_files:
-                if os.path.exists(file):
-                    os.remove(file)
+            # Clean up temporary files
+            for resized_file in resized_files:
+                if os.path.exists(resized_file):
+                    os.remove(resized_file)
 
-    def plot_eeg(self, file_name):
-        # Placeholder for EEG plotting function
-        print(f"Plotting EEG data from {file_name}...")
+
+    def play_pause_all_videos(self):
+        for player in self.media_players:
+            if player:
+                if player.is_playing():
+                    player.pause()
+                else:
+                    player.play()
+
+    def update_video_positions(self):
+        position_percentage = self.time_slider.value() / 100
+        for player in self.media_players:
+            if player and player.get_length() > 0:
+                new_position = int(player.get_length() * position_percentage)
+                player.set_time(new_position)
+
+    def update_slider_position(self):
+        for index, player in enumerate(self.media_players):
+            if player and player.get_length() > 0:
+                current_time = player.get_time()
+                total_length = player.get_length()
+
+                # Pause the video if it is within 200 milliseconds of the end
+                if total_length - current_time <= 200:
+                    print(f"Video {index + 1} is nearing the end. Pausing to prevent end state.")
+                    player.pause()
+
+                    # Rewind slightly to prevent end state and ensure responsiveness
+                    player.set_time(total_length - 500)  # Rewind 500 milliseconds from the end
+
+                # Update the slider position
+                if total_length > 0:
+                    slider_value = int((current_time / total_length) * 100)
+                    self.time_slider.blockSignals(True)
+                    self.time_slider.setValue(slider_value)
+                    self.time_slider.blockSignals(False)
+    def upload_eeg_1(self):
+        # File dialog to select the EEG CSV file
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Open EEG File", "", "CSV Files (*.csv);;All Files (*)", options=options
+        )
+        if file_name:
+            self.process_and_plot_eeg_1(file_name)
+
+    def upload_eeg_2(self):
+        # File dialog to select the EEG CSV file
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Open EEG File", "", "CSV Files (*.csv);;All Files (*)", options=options
+        )
+        if file_name:
+            self.process_and_plot_eeg_2(file_name)
+
+    def process_and_plot_eeg_1(self, file_name):
+      CONVERT_TO_DATETIME = False
+      PULL_TO_EPOCH = False
+
+      df = pd.read_csv(file_name)
+
+      if CONVERT_TO_DATETIME:
+          initial_timestamp = df["timestamps"][0]
+          df["timestamps"] = df["timestamps"].apply(lambda x: datetime.fromtimestamp(x - initial_timestamp))
+
+      fig, axs = plt.subplots(2, 2, sharex=True, sharey=False, layout="constrained", figsize=(5, 3))
+      axs = axs.flatten()
+
+      axs[0].plot(df["timestamps"], df["TP9"], color="blue", linewidth=2)
+      axs[1].plot(df["timestamps"], df["AF7"], color="purple", linewidth=2)
+      axs[2].plot(df["timestamps"], df["TP10"], color="cyan", linewidth=2)
+      axs[3].plot(df["timestamps"], df["AF8"], color="pink", linewidth=2)
+
+      for ax in axs:
+          ax.legend(fontsize=5)
+          ax.grid(True)
+
+      fig.suptitle("EEG Plot 1", fontsize=8)
+
+      if CONVERT_TO_DATETIME and PULL_TO_EPOCH:
+          axs[-1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+
+      fig.tight_layout()
+
+      # Create a FigureCanvas and NavigationToolbar
+      canvas = FigureCanvas(fig)
+      toolbar = NavigationToolbar(canvas, self)
+      toolbar.setFixedHeight(25)
+
+      # Clear existing widgets from the display
+      layout = self.eeg_data_display_1.layout()
+      if layout is None:
+          layout = QVBoxLayout(self.eeg_data_display_1)
+      else:
+          while layout.count():
+              item = layout.takeAt(0)
+              widget = item.widget()
+              if widget is not None:
+                  widget.deleteLater()
+
+      # Add the toolbar and canvas to the layout
+      layout.addWidget(toolbar)
+      layout.addWidget(canvas)
+
+    def process_and_plot_eeg_2(self, file_name):
+      CONVERT_TO_DATETIME = False
+      PULL_TO_EPOCH = False
+
+      df = pd.read_csv(file_name)
+
+      if CONVERT_TO_DATETIME:
+          initial_timestamp = df["timestamps"][0]
+          df["timestamps"] = df["timestamps"].apply(lambda x: datetime.fromtimestamp(x - initial_timestamp))
+
+      fig, axs = plt.subplots(2, 2, sharex=True, sharey=False, layout="constrained", figsize=(5, 3))
+      axs = axs.flatten()
+
+      axs[0].plot(df["timestamps"], df["TP9"], color="blue", linewidth=2)
+      axs[1].plot(df["timestamps"], df["AF7"], color="purple", linewidth=2)
+      axs[2].plot(df["timestamps"], df["TP10"], color="cyan", linewidth=2)
+      axs[3].plot(df["timestamps"], df["AF8"], color="pink", linewidth=2)
+
+      for ax in axs:
+          ax.legend(fontsize=5)
+          ax.grid(True)
+
+      fig.suptitle("EEG Plot 2", fontsize=8)
+
+      if CONVERT_TO_DATETIME and PULL_TO_EPOCH:
+          axs[-1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+
+      fig.tight_layout()
+
+      # Create a FigureCanvas and NavigationToolbar
+      canvas = FigureCanvas(fig)
+      toolbar = NavigationToolbar(canvas, self)
+      toolbar.setFixedHeight(25)
+
+      # Clear existing widgets from the display
+      layout = self.eeg_data_display_2.layout()
+      if layout is None:
+          layout = QVBoxLayout(self.eeg_data_display_2)
+      else:
+          while layout.count():
+              item = layout.takeAt(0)
+              widget = item.widget()
+              if widget is not None:
+                  widget.deleteLater()
+
+      # Add the toolbar and canvas to the layout
+      layout.addWidget(toolbar)
+      layout.addWidget(canvas)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
