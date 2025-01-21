@@ -11,9 +11,6 @@ import subprocess
 
 from prototype import autosync
 
-def get_file_name(file_path):
-    return os.path.basename(file_path)
-
 class AspectRatioFrame(QFrame):
     def resizeEvent(self, event):
         # Get the new width and calculate height based on 16:9 aspect ratio
