@@ -274,12 +274,11 @@ class Window(QWidget):
             video.write_videofile(paths[video_num], codec="libx264")
 
     def save_cut(self):
-        if self.mark_in_time is not None and self.mark_out_time is not None:
+        if self.mark_in_time and self.mark_out_time:
             self.cut_in_out()
-            QMessageBox.information(self, "Success", "Video saved successfully!", QMessageBox.Ok)
-            app.quit()
-        else:
-            QMessageBox.warning(self, "Error", "Please set both In and Out marks first.", QMessageBox.Ok)
+
+        QMessageBox.information(self, "Success", "Video saved successfully!", QMessageBox.Ok)
+        app.quit()
 
     def handle_error(self):
         QMessageBox.critical(self, "Error", "An error occurred while loading the media file.", QMessageBox.Ok)
