@@ -3,9 +3,8 @@ from PyQt5.QtGui import QPalette, QFont, QPainter, QColor
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtCore import Qt, QUrl, QRect
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
 import sys
-import os
 
 class HighlightSlider(QSlider):
     def __init__(self, orientation, parent=None):
@@ -13,8 +12,11 @@ class HighlightSlider(QSlider):
         self.mark_in_position = 0
         self.mark_out_position = 0
 
-    def set_marks(self, mark_in, mark_out):
-        self.mark_in_position = int(mark_in * 1000)  
+    def set_mark_in(self, mark_in):
+        self.mark_in_position = int(mark_in * 1000)
+        self.update()
+
+    def set_mark_out(self, mark_out):
         self.mark_out_position = int(mark_out * 1000)
         self.update()
 
@@ -96,11 +98,6 @@ class Window(QWidget):
         self.volumeSlider.valueChanged.connect(self.set_volume)
         self.mediaPlayer.setVolume(50)
 
-        self.openBtn = QPushButton("Open Video file")
-        self.openBtn.clicked.connect(self.open_file)
-        self.openBtn.setMinimumSize(50, 40)
-        self.openBtn.setMaximumSize(200, 50)
-
         self.markInLabel = QLabel("Mark In Time\n00:00")
         self.markInLabel.setAlignment(Qt.AlignCenter)
         self.markOutLabel = QLabel("Mark Out Time\n00:00")
@@ -132,7 +129,6 @@ class Window(QWidget):
 
         controlLayout = QHBoxLayout()
         controlLayout.setSpacing(30)
-        controlLayout.addWidget(self.openBtn, alignment=Qt.AlignLeft)
         controlLayout.addWidget(self.playBtn, alignment=Qt.AlignRight)
 
         markerLayout1 = QVBoxLayout()
@@ -225,12 +221,10 @@ class Window(QWidget):
         }
     """)
 
-    def open_file(self):
-        filename, _ = QFileDialog.getOpenFileName(self, "Open Video")
-        if filename != '':
-            self.video_file = filename
-            self.mediaPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(filename)))
-            self.playBtn.setEnabled(True)
+    def open_file(self, filename):
+        self.video_file = filename
+        self.mediaPlayer.setMedia(QMediaContent(QUrl.fromLocalFile(filename)))
+        self.playBtn.setEnabled(True)
 
     def play_video(self):
         if self.mediaPlayer.state() == QMediaPlayer.PlayingState:
@@ -265,24 +259,25 @@ class Window(QWidget):
         if self.mediaPlayer.position() > 0:
             self.mark_in_time = self.mediaPlayer.position() / 1000
             self.markInLabel.setText(f"Mark In Time\n{self.format_time(self.mark_in_time)}")
-            self.slider.set_marks(self.mark_in_time, self.mark_out_time)
+            self.slider.set_mark_in(self.mark_in_time)
 
     def place_mark_out(self):
         if self.mediaPlayer.position() > 0:
             self.mark_out_time = self.mediaPlayer.position() / 1000
             self.markOutLabel.setText(f"Mark Out Time\n{self.format_time(self.mark_out_time)}")
-            self.slider.set_marks(self.mark_in_time, self.mark_out_time)
+            self.slider.set_mark_out(self.mark_out_time)
 
     def cut_in_out(self):
         if self.mark_in_time is not None and self.mark_out_time is not None:
             video = VideoFileClip(self.video_file)
-            video = video.subclip(self.mark_in_time, self.mark_out_time)
-            video.write_videofile("output.mp4")
+            video = video.subclipped(self.mark_in_time, self.mark_out_time)
+            video.write_videofile(paths[video_num], codec="libx264")
 
     def save_cut(self):
         if self.mark_in_time is not None and self.mark_out_time is not None:
             self.cut_in_out()
             QMessageBox.information(self, "Success", "Video saved successfully!", QMessageBox.Ok)
+            app.quit()
         else:
             QMessageBox.warning(self, "Error", "Please set both In and Out marks first.", QMessageBox.Ok)
 
@@ -293,4 +288,8 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = Window()
     window.show()
+    args = sys.argv[1:]
+    video_num = int(args[-1]) - 1
+    paths= args[:-1]
+    window.open_file(paths[video_num])
     sys.exit(app.exec_())

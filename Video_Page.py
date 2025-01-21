@@ -7,8 +7,12 @@ from PyQt5.QtCore import Qt, QTimer
 import sys
 import ffmpeg
 import os
+import subprocess
 
 from prototype import autosync
+
+def get_file_name(file_path):
+    return os.path.basename(file_path)
 
 class AspectRatioFrame(QFrame):
     def resizeEvent(self, event):
@@ -52,6 +56,7 @@ class VideoSyncApp(QWidget):
         # Video 1: Top video, Edit button above Upload button
         self.edit_btn_1 = QPushButton('Edit Video 1')
         self.edit_btn_1.setStyleSheet("background-color: #FFFFFF;")
+        self.edit_btn_1.clicked.connect(lambda: self.edit_video(1))
         self.edit_btn_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.video_data_1 = QLabel('Video Data\n00:00')
@@ -78,6 +83,7 @@ class VideoSyncApp(QWidget):
 
         self.edit_btn_3 = QPushButton('Edit Video 3')
         self.edit_btn_3.setStyleSheet("background-color: #FFFFFF;")
+        self.edit_btn_3.clicked.connect(lambda: self.edit_video(3))
         self.edit_btn_3.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         left_panel.addWidget(self.upload_btn_3)
@@ -91,6 +97,7 @@ class VideoSyncApp(QWidget):
         # Video 2: Top video, Edit button above Upload button
         self.edit_btn_2 = QPushButton('Edit Video 2')
         self.edit_btn_2.setStyleSheet("background-color: #FFFFFF;")
+        self.edit_btn_2.clicked.connect(lambda: self.edit_video(2))
         self.edit_btn_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.video_data_2 = QLabel('Video Data\n00:00')
@@ -117,6 +124,7 @@ class VideoSyncApp(QWidget):
 
         self.edit_btn_4 = QPushButton('Edit Video 4')
         self.edit_btn_4.setStyleSheet("background-color: #FFFFFF;")
+        self.edit_btn_4.clicked.connect(lambda: self.edit_video(4))
         self.edit_btn_4.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         right_panel.addWidget(self.upload_btn_4)
@@ -264,6 +272,32 @@ class VideoSyncApp(QWidget):
             filename_label.setText(f"Filename:\n{file_name}")
             filename_label.setWordWrap(True)
 
+    def edit_video(self, video_num):
+        if not self.media_players[video_num - 1]:
+            print("Error. No media loaded")
+            return
+        video_path = self.video_paths[video_num - 1]
+        if not video_path:
+            return
+        print("Error. No video file path found")
+
+        paths = " ".join([path if path else "skip" for path in self.video_paths])
+        command = f"python newLayout.py {paths} {video_num}"
+        print(command)
+
+        # Saving resources
+        print("Stopping Video_Page.py...")
+        self.close()
+        app.quit()
+
+        # Launch the video editing page
+        subprocess.run(command, shell=True)
+
+        # Restart after editing as code freezes on subprocess.run
+        print("Restarting Video_Page.py...")
+        new_command = f"python Video_Page.py {paths}"
+        subprocess.run(new_command, shell=True)
+
     def merge_videos(self):
         # Collect file paths for all videos
         file_paths = []
@@ -351,5 +385,21 @@ class VideoSyncApp(QWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = VideoSyncApp()
+    # Passing paths if opened from editor
+    if len(sys.argv) > 1:
+        paths = sys.argv[1:]
+        for i, path in enumerate(paths):
+            # Ignoring all 'skip' paths as there was no video there and loading others back to their space
+            if path != "skip":
+                ex.video_paths[i] = path
+                ex.media_players[i] = vlc.MediaPlayer()
+                ex.media_players[i].set_hwnd(int(ex.video_widgets[i].winId()))
+                media = vlc.Media(path)
+                ex.media_players[i].set_media(media)
+
+                filename_label = getattr(ex, f"filename_{i + 1}")
+                filename_label.setText(f"Filename:\n{path}")
+                filename_label.setWordWrap(True)
+
     ex.show()
     sys.exit(app.exec_())
