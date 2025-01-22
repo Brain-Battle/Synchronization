@@ -382,6 +382,7 @@ class VideoSyncApp(QWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = VideoSyncApp()
+    eeg_paths = None
     # Passing paths if opened from editor
     if len(sys.argv) > 1:
         if len(sys.argv) <= 5:
@@ -402,6 +403,10 @@ if __name__ == '__main__':
                 filename_label = getattr(ex, f"filename_{i + 1}")
                 filename_label.setText(f"Filename:\n{path}")
                 filename_label.setWordWrap(True)
+
+        if eeg_paths:
+            # Code to process EEG data, will update after merging
+            pass
 
     ex.show()
     sys.exit(app.exec_())
