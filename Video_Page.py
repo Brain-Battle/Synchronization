@@ -10,8 +10,18 @@ import os
 import subprocess
 
 from prototype import autosync
+from newLayout import HighlightSlider
+
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+from PyQt5.QtMultimediaWidgets import QVideoWidget
+from PyQt5.QtCore import QUrl
 
 class AspectRatioFrame(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setLayout(QVBoxLayout())  # Add a layout to manage children
+        self.layout().setContentsMargins(0, 0, 0, 0)  # Remove margins
+
     def resizeEvent(self, event):
         # Get the new width and calculate height based on 16:9 aspect ratio
         width = self.width()
@@ -20,7 +30,6 @@ class AspectRatioFrame(QFrame):
         # Set the fixed size for the QFrame
         self.setFixedHeight(height)
         super().resizeEvent(event)
-
 
 class VideoSyncApp(QWidget):
     def __init__(self):
@@ -34,7 +43,6 @@ class VideoSyncApp(QWidget):
         self.initUI()
         self.timer = QTimer(self)
         self.timer.setInterval(100)
-        self.timer.timeout.connect(self.update_slider_position)
         self.timer.start()
 
     def initUI(self):
@@ -139,21 +147,25 @@ class VideoSyncApp(QWidget):
         self.video_display_1.resize(400, 225)
         self.video_display_1.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
         self.video_display_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_display_1.setLayout(QVBoxLayout())  # Assign a layout
 
         self.video_display_2 = AspectRatioFrame(self)
         self.video_display_2.resize(400, 225)
         self.video_display_2.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
         self.video_display_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_display_2.setLayout(QVBoxLayout())  # Assign a layout
 
         self.video_display_3 = AspectRatioFrame(self)
         self.video_display_3.resize(400, 225)
         self.video_display_3.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
         self.video_display_3.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_display_3.setLayout(QVBoxLayout())  # Assign a layout
 
         self.video_display_4 = AspectRatioFrame(self)
         self.video_display_4.resize(400, 225)
         self.video_display_4.setStyleSheet("border: 1px solid black; box-sizing: border-box;")
         self.video_display_4.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_display_4.setLayout(QVBoxLayout())  # Assign a layout
 
         self.video_widgets = [self.video_display_1, self.video_display_2, self.video_display_3, self.video_display_4]
 
@@ -167,9 +179,10 @@ class VideoSyncApp(QWidget):
         self.eeg_data_display_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.eeg_data_display_2.setStyleSheet("border: 1px solid black;")
 
-        self.time_slider = QSlider(Qt.Horizontal)
+        self.time_slider = HighlightSlider(Qt.Horizontal)
+        self.time_slider.setRange(0, 0)  # Set initial range
         self.time_slider.setValue(0)
-        self.time_slider.sliderReleased.connect(self.update_video_positions)
+        self.time_slider.sliderMoved.connect(self.set_position)  # Connect movement to video position
 
         central_panel.addWidget(self.video_display_1, 0, 0)
         central_panel.addWidget(self.video_display_2, 0, 1)
@@ -186,7 +199,6 @@ class VideoSyncApp(QWidget):
         bottom_panel = QVBoxLayout()
         slider_panel = QHBoxLayout()
         slider_panel_2 = QHBoxLayout()
-
 
         self.timecode_checkbox = QCheckBox('Timecode')
         slider_panel_2.addWidget(self.timecode_checkbox)
@@ -256,15 +268,20 @@ class VideoSyncApp(QWidget):
     def upload_video(self, video_num):
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Video File", "",
-                                                   "Video Files (*.mp4 *.avi *.mov);;All Files (*)", options=options)
+                                                "Video Files (*.mp4 *.avi *.mov);;All Files (*)", options=options)
         if file_name:
             self.video_paths[video_num - 1] = file_name
             if not self.media_players[video_num - 1]:
-                self.media_players[video_num - 1] = vlc.MediaPlayer()
-                self.media_players[video_num - 1].set_hwnd(int(self.video_widgets[video_num - 1].winId()))
+                self.media_players[video_num - 1] = QMediaPlayer()
+                video_widget = QVideoWidget(self)
+                self.media_players[video_num - 1].setVideoOutput(video_widget)
+                self.video_widgets[video_num - 1].layout().addWidget(video_widget)
 
-            media = vlc.Media(file_name)
-            self.media_players[video_num - 1].set_media(media)
+            media = QMediaContent(QUrl.fromLocalFile(file_name))
+            self.media_players[video_num - 1].setMedia(media)
+
+            self.media_players[video_num - 1].positionChanged.connect(self.position_changed)
+            self.media_players[video_num - 1].durationChanged.connect(self.duration_changed)
 
             filename_label = getattr(self, f"filename_{video_num}")
             filename_label.setText(f"Filename:\n{file_name}")
@@ -348,38 +365,23 @@ class VideoSyncApp(QWidget):
     def play_pause_all_videos(self):
         for player in self.media_players:
             if player:
-                if player.is_playing():
+                if player.state() == QMediaPlayer.PlayingState:
                     player.pause()
                 else:
                     player.play()
 
-    def update_video_positions(self):
-        position_percentage = self.time_slider.value() / 100
+    def set_position(self, position):
         for player in self.media_players:
-            if player and player.get_length() > 0:
-                new_position = int(player.get_length() * position_percentage)
-                player.set_time(new_position)
+            if player:
+                player.setPosition(position)
 
-    def update_slider_position(self):
-        for index, player in enumerate(self.media_players):
-            if player and player.get_length() > 0:
-                current_time = player.get_time()
-                total_length = player.get_length()
+    def position_changed(self, position):
+        # Update the slider position
+        self.time_slider.setValue(position)
 
-                # Pause the video if it is within 200 milliseconds of the end
-                if total_length - current_time <= 200:
-                    print(f"Video {index + 1} is nearing the end. Pausing to prevent end state.")
-                    player.pause()
-
-                    # Rewind slightly to prevent end state and ensure responsiveness
-                    player.set_time(total_length - 500)  # Rewind 500 milliseconds from the end
-
-                # Update the slider position
-                if total_length > 0:
-                    slider_value = int((current_time / total_length) * 100)
-                    self.time_slider.blockSignals(True)
-                    self.time_slider.setValue(slider_value)
-                    self.time_slider.blockSignals(False)
+    def duration_changed(self, duration):
+        # Update the slider range
+        self.time_slider.setRange(0, duration)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
