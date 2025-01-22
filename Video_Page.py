@@ -408,7 +408,7 @@ if __name__ == '__main__':
 
         for eeg_path in eeg_paths:
             if eeg_path:
-                # Code to process EEG data, will update after merging
+                # Add code to process eeg
                 pass
 
     ex.show()
