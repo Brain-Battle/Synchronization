@@ -30,6 +30,7 @@ class VideoSyncApp(QWidget):
         self.media_players = [None, None, None, None]
         self.video_widgets = [None, None, None, None]
         self.video_paths = [None, None, None, None]
+        self.eeg_paths = [None, None]
         self.initUI()
         self.timer = QTimer(self)
         self.timer.setInterval(100)
@@ -279,7 +280,8 @@ class VideoSyncApp(QWidget):
         print("Error. No video file path found")
 
         paths = " ".join([path if path else "skip" for path in self.video_paths])
-        command = f"python newLayout.py {paths} {video_num}"
+        eeg_paths = " ".join([path if path else "skip" for path in self.eeg_paths])
+        command = f"python newLayout.py {paths} {eeg_paths} {video_num}"
         print(command)
 
         # Saving resources
@@ -292,7 +294,7 @@ class VideoSyncApp(QWidget):
 
         # Restart after editing as code freezes on subprocess.run
         print("Restarting Video_Page.py...")
-        new_command = f"python Video_Page.py {paths}"
+        new_command = f"python Video_Page.py {paths} {eeg_paths}"
         subprocess.run(new_command, shell=True)
 
     def merge_videos(self):
@@ -382,7 +384,7 @@ class VideoSyncApp(QWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = VideoSyncApp()
-    eeg_paths = None
+    eeg_paths = [None, None]
     # Passing paths if opened from editor
     if len(sys.argv) > 1:
         if len(sys.argv) <= 5:
@@ -404,9 +406,10 @@ if __name__ == '__main__':
                 filename_label.setText(f"Filename:\n{path}")
                 filename_label.setWordWrap(True)
 
-        if eeg_paths:
-            # Code to process EEG data, will update after merging
-            pass
+        for eeg_path in eeg_paths:
+            if eeg_path:
+                # Code to process EEG data, will update after merging
+                pass
 
     ex.show()
     sys.exit(app.exec_())

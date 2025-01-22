@@ -289,6 +289,6 @@ if __name__ == '__main__':
     window.show()
     args = sys.argv[1:]
     video_num = int(args[-1]) - 1
-    paths= args[:-1]
+    paths= args[:-3]
     window.open_file(paths[video_num])
     sys.exit(app.exec_())
