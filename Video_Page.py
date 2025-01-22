@@ -384,7 +384,12 @@ if __name__ == '__main__':
     ex = VideoSyncApp()
     # Passing paths if opened from editor
     if len(sys.argv) > 1:
-        paths = sys.argv[1:]
+        if len(sys.argv) <= 5:
+            paths = sys.argv[1:]
+        else:
+            paths = sys.argv[1:5]
+            eeg_paths = sys.argv[5:]
+
         for i, path in enumerate(paths):
             # Ignoring all 'skip' paths as there was no video there and loading others back to their space
             if path != "skip":
