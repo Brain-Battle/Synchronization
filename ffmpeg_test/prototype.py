@@ -118,7 +118,36 @@ def process_audio(video_path):
     print(f"Audio processing complete for {get_file_name(video_path)}.")
     return final_audio
 
+
 def find_all_delays(video_paths: List[str]) -> List[float]:
+    """
+        Extracts audio clips from video paths and calculates cross-correlations of the audio signals
+        around a pivot video. Returns the amount that the videos are delayed (in seconds) compared to
+        the pivot video.
+
+        The point where the cross correlation is the highest is the point where audios match.
+
+        This function chooses the pivot as the video that has the longest duration.
+
+        If you would like to specify the pivot yourself, please see find_all_delays_with_pivot() 
+
+        Arguments:
+            - video_paths (list(str)): All video paths as strings.
+
+        Returns:
+            - list(float): List of the amount of times that the other videos are delayed compared to
+                           the pivot video. The pivot by definition has a delay of 0 seconds.
+        
+        Notes:
+        - Longest video by duration is the pivot.
+        - Negative values of delay mean that the videos start earlier than the pivot. This can be solved
+          by pushing the pivot by the amount of delay, however since we are matching more than 2 videos
+          this is not recommended. Trim the start of the video that is delayed, by the absolute value of the delay,
+          to match it with the pivot.
+        - Positive delays mean that the video starts later compared to the pivot, and thus should be
+          "pushed forward" by the amount of the delay to match with the pivot.
+    """
+
     if len(video_paths) < 2:
         raise ValueError("At least two video paths are required for autosync.")
 
@@ -143,11 +172,52 @@ def find_all_delays(video_paths: List[str]) -> List[float]:
 
     return delays
 
-def autosync(video_paths: List[str]) -> List[float]:
-    """Main function to calculate and return delays for autosync."""
+
+def find_all_delays_with_pivot(video_paths: List[str], pivot_index: int) -> List[float]:
+    """
+        A modified version of the find_all_delays function
+        Instead of choosing the longest video as the pivot,
+        it takes the index of the pivot as an argument.
+
+        This would allow the user to choose which specific video
+        that they want to synchronize the others to.
+
+        Arguments:
+            - video_paths (list(str)): All video paths as strings
+            - pivot_index (int): the index of the video path, that will be taken as pivot.
+
+        Returns:
+            - list(float): List of the amount of times that the other videos are delayed compared to
+                           the pivot video. The pivot by definition has a delay of 0 seconds.
+        
+        Notes:
+        - Negative values of delay mean that the videos start earlier than the pivot. This can be solved
+          by pushing the pivot by the amount of delay, however since we are matching more than 2 videos
+          this is not recommended. Trim the start of the video that is delayed, by the absolute value of the delay,
+          to match it with the pivot.
+        - Positive delays mean that the video starts later compared to the pivot, and thus should be
+          "pushed forward" by the amount of the delay to match with the pivot.
+    """
     
-    if not all(os.path.exists(path) for path in video_paths):
-        raise FileNotFoundError("One or more video paths are invalid.")
-    delays = find_all_delays(video_paths)
-    print(f"Delays calculated, the delays are: {delays}")
+    if len(video_paths) < 2:
+        raise ValueError("At least two video paths are required for autosync.")
+
+    delays = [0.0] * len(video_paths)
+    processed_audios = [process_audio(path) for path in video_paths]
+
+    for i in range(len(video_paths)):
+        if i != pivot_index:
+            corr = signal.correlate(processed_audios[pivot_index], 
+                                    processed_audios[i], 
+                                    mode="same", 
+                                    method="fft")
+            
+            lags = signal.correlation_lags(len(processed_audios[pivot_index]), 
+                                           len(processed_audios[i]), 
+                                           mode="same")
+            
+            max_corr = np.argmax(corr)
+            time_delay = lags[max_corr] / 44100  # Convert to seconds
+            delays[i] = time_delay
+
     return delays
