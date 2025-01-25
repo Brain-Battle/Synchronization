@@ -5,9 +5,9 @@ from moviepy import VideoFileClip
 import sys
 
 # Paths to the video and CSV
-video_path = r"E:\Fall Semester 2024\Videos\Round 2.MOV"
-csv_path = r"E:\Fall Semester 2024\eeg data\EEG_recording_2024-11-16-09.47.06.csv"
-output_path = r"E:\Fall Semester 2024\Videos\Adjusted_Video4.mp4"
+video_path = r"C:\Users\enesy\Videos\xd\3.MP4"
+csv_path = r"C:\Users\enesy\Videos\xd\EEG_recording_2024-11-16-09.47.06.csv"
+output_path = r".\Adjusted_Video_again_and_again.mp4"
 
 try:
     # Extract video creation time
