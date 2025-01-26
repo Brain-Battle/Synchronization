@@ -220,3 +220,12 @@ def find_all_delays_with_pivot(video_paths: List[str], pivot_index: int) -> List
             delays[i] = time_delay
 
     return delays
+
+def autosync(video_paths: List[str]) -> List[float]:
+    """Main function to calculate and return delays for autosync."""
+    
+    if not all(os.path.exists(path) for path in video_paths):
+        raise FileNotFoundError("One or more video paths are invalid.")
+    delays = find_all_delays(video_paths)
+    print(f"Delays calculated, the delays are: {delays}")
+    return delays

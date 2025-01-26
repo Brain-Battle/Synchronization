@@ -3,11 +3,17 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame, QSizePolicy
 )
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from PyQt5.QtCore import Qt, QTimer
 import sys
 import ffmpeg
 import os
 import subprocess
+import pandas as pd
+import datetime
 
 from prototype import autosync
 
@@ -160,14 +166,17 @@ class VideoSyncApp(QWidget):
         self.video_widgets = [self.video_display_1, self.video_display_2, self.video_display_3, self.video_display_4]
 
         self.eeg_data_display_1 = QLabel('EEG Data Display 1')
-        self.eeg_data_display_1.setMaximumSize(672, 100)
-        self.eeg_data_display_1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.eeg_data_display_1.setStyleSheet("border: 1px solid black;")
+        self.eeg_data_display_1 = QFrame()  # Use QFrame as a container
+        self.eeg_data_display_1.setFixedSize(800, 150)
+        self.eeg_data_display_1.setStyleSheet("border: 2px solid black;")
+        self.eeg_plot_layout_1 = QVBoxLayout(self.eeg_data_display_1)
+
 
         self.eeg_data_display_2 = QLabel('EEG Data Display 2')
-        self.eeg_data_display_2.setMaximumSize(672, 100)
-        self.eeg_data_display_2.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.eeg_data_display_2.setStyleSheet("border: 1px solid black;")
+        self.eeg_data_display_2 = QFrame()  # Use QFrame as a container
+        self.eeg_data_display_2.setFixedSize(800, 150)
+        self.eeg_data_display_2.setStyleSheet("border: 2px solid black;")
+        self.eeg_plot_layout_2 = QVBoxLayout(self.eeg_data_display_2)
 
         self.time_slider = QSlider(Qt.Horizontal)
         self.time_slider.setValue(0)
@@ -194,9 +203,11 @@ class VideoSyncApp(QWidget):
         slider_panel_2.addWidget(self.timecode_checkbox)
 
         self.upload_eeg_btn_1 = QPushButton('Upload EEG 1')
+        self.upload_eeg_btn_1.clicked.connect(self.upload_eeg_1)
         self.upload_eeg_btn_1.setStyleSheet("background-color: #FFFFFF;")
 
         self.upload_eeg_btn_2 = QPushButton('Upload EEG 2')
+        self.upload_eeg_btn_1.clicked.connect(self.upload_eeg_2)
         self.upload_eeg_btn_2.setStyleSheet("background-color: #FFFFFF;")
 
         self.auto_sync_btn = QPushButton('Auto Sync')
@@ -254,6 +265,96 @@ class VideoSyncApp(QWidget):
 
         except Exception as e:
             print(f"Error during autosync: {e}")
+
+
+    def upload_eeg_1(self):
+        # File dialog to select the EEG CSV file
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Open EEG File", "", "CSV Files (*.csv);;All Files (*)", options=options
+        )
+        if file_name:
+            self.process_and_plot_eeg_1(file_name)
+
+    def upload_eeg_2(self):
+        # File dialog to select the EEG CSV file
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Open EEG File", "", "CSV Files (*.csv);;All Files (*)", options=options
+        )
+        if file_name:
+            self.process_and_plot_eeg_2(file_name)        
+
+    def process_and_plot_eeg_1(self, file_name):
+        CONVERT_TO_DATETIME = False
+        PULL_TO_EPOCH = False
+
+        df = pd.read_csv(file_name)
+
+        if CONVERT_TO_DATETIME:
+            initial_timestamp = df["timestamps"][0]
+            df["timestamps"] = df["timestamps"].apply(lambda x: datetime.fromtimestamp(x - initial_timestamp))
+
+        fig, axs = plt.subplots(2, 2, sharex=True, sharey=False, layout="constrained")
+        axs = axs.flatten()
+        
+        axs[0].plot(df["timestamps"], df["TP9"], color="blue", linewidth=2)
+        axs[1].plot(df["timestamps"], df["AF7"], color="purple", linewidth=2)
+        axs[2].plot(df["timestamps"], df["TP10"], color="cyan", linewidth=2)
+        axs[3].plot(df["timestamps"], df["AF8"], color="pink", linewidth=2)
+    
+        for ax in axs:
+            ax.legend(fontsize=5)
+            ax.grid(True)
+
+        fig.suptitle("EEG Plot 1", fontsize=8)
+
+        if CONVERT_TO_DATETIME and PULL_TO_EPOCH:
+            axs[-1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+
+        fig.tight_layout()
+
+        canvas = FigureCanvas(fig)
+        toolbar = NavigationToolbar(canvas, self)
+        toolbar.setFixedHeight(25)
+        self.eeg_plot_layout_1.addWidget(toolbar)
+        self.eeg_plot_layout_1.addWidget(canvas)
+
+    def process_and_plot_eeg_2(self, file_name):
+        CONVERT_TO_DATETIME = False
+        PULL_TO_EPOCH = False
+
+        df = pd.read_csv(file_name)
+
+        if CONVERT_TO_DATETIME:
+            initial_timestamp = df["timestamps"][0]
+            df["timestamps"] = df["timestamps"].apply(lambda x: datetime.fromtimestamp(x - initial_timestamp))
+
+        fig, axs = plt.subplots(2, 2, sharex=True, layout="constrained")
+        axs = axs.flatten()
+
+        axs[0].plot(df["timestamps"], df["TP9"], color="red", linewidth=2)
+        axs[1].plot(df["timestamps"], df["AF7"], color="orange", linewidth=2)
+        axs[2].plot(df["timestamps"], df["TP10"], color="green", linewidth=2)
+        axs[3].plot(df["timestamps"], df["AF8"], color="blue", linewidth=2)
+
+        for ax in axs:
+            ax.legend(fontsize=5)
+            ax.grid(True)
+
+        fig.suptitle("EEG Plot 2", fontsize=8)
+
+        if CONVERT_TO_DATETIME and PULL_TO_EPOCH:
+            axs[-1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M:%S.%f"))
+
+        fig.tight_layout()
+
+        canvas = FigureCanvas(fig)
+        toolbar = NavigationToolbar(canvas, self)
+        toolbar.setFixedHeight(25)
+        self.eeg_plot_layout_2.addWidget(toolbar)
+        self.eeg_plot_layout_2.addWidget(canvas)       
+
 
     def upload_video(self, video_num):
         options = QFileDialog.Options()
