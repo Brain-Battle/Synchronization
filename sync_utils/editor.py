@@ -1,5 +1,5 @@
 from moviepy import VideoFileClip, CompositeVideoClip, clips_array, vfx
-from ..sync_utils.audio_analysis import find_all_delays
+from .audio_analysis import find_all_delays
 
 class VideoMerger:
     """
@@ -42,8 +42,8 @@ class VideoMerger:
         if self.video_paths[flattened_index] != None and replace == False:
             print(f"A video already exists at row {row} and column {column}. Set replace=True to replace it.")
 
-        self.videos_array[row][column] = VideoFileClip(str)
-        self.video_paths[row][column] = str
+        self.videos_array[flattened_index] = VideoFileClip(video_path)
+        self.video_paths[flattened_index] = video_path
 
     def remove_video(self, row: int, column: int):
         """
@@ -82,16 +82,24 @@ class VideoMerger:
                 # If the delay of the video is negative:
                 if delays[index] < 0:
                     # We trim the video from the start
-                    self.videos_array[index] = video.subclipped(delays[index], video.duration)
+                    self.videos_array[index] = video.subclipped(abs(delays[index]), video.duration)
                     
                     # Update the corresponding video's duration
                     durations[index] -= round(delays[index])
+
+                    print(f"Processed video {index}")
 
                 else: # If the delay is positive
                     # We delay/push the videos start by the amount
                     self.videos_array[index] = video.with_start(abs(delays[index]))
 
-        self.current_composite = clips_array(self.videos_array)
+                    print(f"Processed video {index}")
+
+        
+        print(f"Combining videos")
+        grid = [[self.videos_array[0], self.videos_array[1]],
+                [self.videos_array[2], self.videos_array[3]]]
+        self.current_composite = clips_array(grid)
         self.current_composite = self.current_composite.subclipped(max(delays), min(durations))
         self.current_composite = self.current_composite.resized(width=3840, height=2160)
     
@@ -101,6 +109,14 @@ class VideoMerger:
         """
         try:
             self.current_composite.preview()
+        except:
+            print("Please upload all four videos and synchronize.")
+            return
+        
+    def export(self):
+        
+        try:
+            self.current_composite.write_videofile("output.mp4")
         except:
             print("Please upload all four videos and synchronize.")
             return
