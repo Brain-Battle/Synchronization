@@ -269,7 +269,7 @@ class VideoSyncApp(QWidget):
 
                     # Adjust the starting position (in milliseconds)
                     start_position_ms = max(0, int(relative_delay * 1000))  # VLC expects milliseconds
-                    self.media_players[i].set_time(start_position_ms)
+                    self.media_players[i].setPosition(start_position_ms)
 
             print("Videos have been synced successfully.")
 

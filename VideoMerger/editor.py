@@ -26,7 +26,7 @@ class VideoMerger:
         try:
             final_clip = clips_array(self.videos_array)
             final_clip = final_clip.resized(width=3840, height=2160)
-            final_clip.write_videofile()
+            final_clip.preview()
         except:
             print("Please upload all four videos.")
             return
