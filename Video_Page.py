@@ -13,12 +13,14 @@ import ffmpeg
 import os
 import subprocess
 import pandas as pd
+import numpy as np
 import datetime
 
 # Imports for preview and export
-from sync_utils.audio_analysis import find_all_delays, find_all_durations
+from sync_utils.audio_analysis import find_all_delays_with_pivot, find_all_durations
 from sync_utils.video_sync import generate_single_preview, generate_grid_command, run_ffmpeg_subprocess
 from sync_utils.eeg_video_sync import compare_video_eeg, cut_video_from_start_end
+from sync_utils.infobox import Infobox
 import tempfile
 
 from prototype import autosync
@@ -27,6 +29,8 @@ from newLayout import HighlightSlider
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtCore import QUrl
+from PyQt5.QtWidgets import QDialog
+
 
 class AspectRatioFrame(QFrame):
     def __init__(self, parent=None):
@@ -60,8 +64,12 @@ class VideoSyncApp(QWidget):
         self.temp_folder = tempfile.TemporaryDirectory() 
         self.temp_video_paths = []
 
+        self.eeg_file_name_1 = None
+        self.eeg_file_name_2 = None
+
         self._durations = []
         self._delays = []
+
 
     def initUI(self):
         self.setWindowTitle('BattleUI')
@@ -258,61 +266,56 @@ class VideoSyncApp(QWidget):
 
         self.setLayout(main_layout)
 
-    def auto_sync_videos(self):
-        # Collect video paths (ensure all videos are uploaded)
-        video_paths = [path for path in self.video_paths if path]
-
-        if len(video_paths) < 2:
-            print("Please upload at least two videos before syncing.")
-            return
-
-        try:
-            # Call the autosync function to calculate delays
-            delays = autosync(video_paths)
-
-            # Find the longest video's delay (it will serve as the reference)
-            reference_delay = min(delays)
-
-            # Adjust the playback positions of all videos relative to the reference
-            for i, delay in enumerate(delays):
-                if self.media_players[i]:  # Ensure the VLC media player exists
-                    # Calculate the relative delay (positive or negative)
-                    relative_delay = delay - reference_delay
-
-                    # Adjust the starting position (in milliseconds)
-                    start_position_ms = max(0, int(relative_delay * 1000))  # VLC expects milliseconds
-                    self.media_players[i].setPosition(start_position_ms)
-
-            print("Videos have been synced successfully.")
-
-        except Exception as e:
-            print(f"Error during autosync: {e}")
-
     def auto_sync(self):
         for path in self.video_paths:
             if path == None:
                 print("Please input all videos.")
                 return
         
-        delays = find_all_delays(self.video_paths)
+        progress_dialog = Infobox("Auto-sync")
+        progress_dialog.show()
+
+        # Making a copy because we will mutate the list in a second
+        video_paths = self.video_paths
+
+        progress_dialog.update_message("Analyzing durations...")
         durations = find_all_durations(self.video_paths)
-        max_delay = max(delays) 
+        max_duration_index = np.argmax(durations)
 
         video_preview_commands = []
         temp_output_paths = []
 
-        for index, path in enumerate(self.video_paths):
-            temp_name = f"temporary_vid_{datetime.datetime.now().strftime('%d%m%Y%H%M%S')}_{index}.mp4"
+        # Process the longest video with EEG first
+        # This step is skipped if there is no EEG data
+        if self.eeg_file_name_1 != None or self.eeg_file_name_2 != None:
+            progress_dialog.update_message("EEG data detected. First synchronizing longest video with EEG.")
+            csv_file = self.eeg_file_name_1 if self.eeg_file_name_1 else self.eeg_file_name_2
+            start_time, end_time = compare_video_eeg(self.video_paths[max_duration_index], csv_file, durations[max_duration_index])
+            temp_name = f"temporary_eeg_sync_{datetime.datetime.now().strftime('%d%m%Y%H%M%S')}_{index}.mp4"
             temp_output_path = self.temp_folder.name + f"\\{temp_name}"
 
+            progress_dialog.update_message(f"Synchronizing video {max_duration_index} with EEG.")
+            cut_video_from_start_end(self.video_paths[max_duration_index], start_time, end_time, temp_output_path)
+
+            video_paths[max_duration_index] = temp_output_path
+            durations[max_duration_index] = end_time - start_time
+
+        progress_dialog.update_message(f"Finding all delays by analyzing audios.")
+        delays = find_all_delays_with_pivot(video_paths, max_duration_index)
+        max_delay = max(delays)
+        
+        for index, path in enumerate(video_paths):
+            temp_name = f"temporary_vid_{datetime.datetime.now().strftime('%d%m%Y%H%M%S')}_{index}.mp4"
+            temp_output_path = self.temp_folder.name + f"\\{temp_name}"
+            progress_dialog.update_message(f"Generating command for video {index}.")
             command, new_duration = generate_single_preview(path, delays[index], durations[index], temp_output_path, max_delay)
-            print(command)
 
             temp_output_paths.append(temp_output_path)
             video_preview_commands.append(command)
             durations[index] = new_duration
 
         for index, command in enumerate(video_preview_commands):
+            progress_dialog.update_message(f"Processing video {index}...")
             run_ffmpeg_subprocess(command, durations[index])
 
         self.temp_video_paths = temp_output_paths
@@ -326,6 +329,10 @@ class VideoSyncApp(QWidget):
 
         self._durations = durations
         self._delays = delays
+
+        progress_dialog.update_message(f"Auto-sync complete.")
+
+        progress_dialog.close()
 
         print("Ready to export.")
 
@@ -342,8 +349,6 @@ class VideoSyncApp(QWidget):
         export_command, final_duration = generate_grid_command(self.temp_video_paths, self._delays, self._durations, 
                                                      output_file_name_with_extension=output_file)
         
-        print(export_command)
-        
         run_ffmpeg_subprocess(export_command, final_duration)
 
     def upload_eeg_1(self):
@@ -354,6 +359,7 @@ class VideoSyncApp(QWidget):
         )
         if file_name:
             self.process_and_plot_eeg_1(file_name)
+            self.eeg_file_name_1 = file_name
 
     def upload_eeg_2(self):
         # File dialog to select the EEG CSV file
@@ -363,6 +369,7 @@ class VideoSyncApp(QWidget):
         )
         if file_name:
             self.process_and_plot_eeg_2(file_name)        
+            self.eeg_file_name_2 = file_name
 
     def process_and_plot_eeg_1(self, file_name):
         CONVERT_TO_DATETIME = False
@@ -482,54 +489,6 @@ class VideoSyncApp(QWidget):
         print("Restarting Video_Page.py...")
         new_command = f"python Video_Page.py {paths} {eeg_paths}"
         subprocess.run(new_command, shell=True)
-
-    def merge_videos(self):
-        # Collect file paths for all videos
-        file_paths = []
-        for i in range(1, 5):  # Loop for videos 1 to 4
-            filename_label = getattr(self, f"filename_{i}")
-            file_path = filename_label.text().replace("Filename:\n", "").strip()
-            if file_path:
-                file_paths.append(file_path)
-            else:
-                print(f"Video {i} has not been loaded.")
-                return
-
-        # Check if all four videos are loaded
-        if len(file_paths) != 4:
-            print("Please load all four videos before exporting.")
-            return
-
-        # Output file name
-        output_file = QFileDialog.getSaveFileName(
-            self, "Save Merged Video", "", "Video Files (*.mp4 *.avi *.mov);;All Files (*)"
-        )[0]
-        if not output_file:
-            return
-
-        try:
-            # Temporary resized video file names
-            resized_files = [f"resized_video_{i}.mp4" for i in range(4)]
-
-            # Resize all videos to 640x360
-            for i, file_path in enumerate(file_paths):
-                ffmpeg.input(file_path).filter('scale', 640, 360).output(resized_files[i]).run()
-
-            # Merge videos into a 2x2 grid using the xstack filter
-            grid_layout = "0_0|w0_0|0_h0|w0_h0"  # Arrange in 2x2 grid
-            streams = [ffmpeg.input(resized_file) for resized_file in resized_files]
-            ffmpeg.filter(streams, 'xstack', inputs=4, layout=grid_layout).output(output_file).run()
-
-        except Exception as e:
-            print(f"Error while exporting video: {e}")
-        else:
-            print(f"Merged video successfully exported to {output_file}.")
-        finally:
-            # Clean up temporary files
-            for resized_file in resized_files:
-                if os.path.exists(resized_file):
-                    os.remove(resized_file)
-
 
     def play_pause_all_videos(self):
         for player in self.media_players:

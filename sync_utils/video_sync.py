@@ -3,6 +3,9 @@ import numpy as np
 import datetime
 import subprocess
 import tempfile
+from .infobox import Infobox
+
+
 
 def generate_single_preview(video_path: str, delay: float, duration: float, output_path: str, max_delay: float = 0):
     """
@@ -170,6 +173,9 @@ def run_ffmpeg_subprocess(ffmpeg_command: str, resulting_duration: float, debug:
         - debug (bool): Should it print the full FFMPEG output? Default: False
     """
     
+    infobox = Infobox(window_title="Video Process")
+    infobox.show()
+    
     # We are going to use pipes and subprocess
     # This is because we want to see the progress of FFMPEG from our main process (i.e the notebook)
 
@@ -189,6 +195,7 @@ def run_ffmpeg_subprocess(ffmpeg_command: str, resulting_duration: float, debug:
 
     end_time = str(datetime.timedelta(seconds=resulting_duration)) # Used for printing the last point of the video
     # Print the progress that ffmpeg outputs
+    infobox.update_message("FFMPEG is starting, please wait a couple minutes.")
     print("FFMPEG is starting, please wait a couple minutes.")
     for line in ffmpeg_process.stdout:
         # for all output from ffmpeg
@@ -201,7 +208,10 @@ def run_ffmpeg_subprocess(ffmpeg_command: str, resulting_duration: float, debug:
             if line.startswith("out_time="):
                 progress = line.split("=")[1]
                 print(f"Progress: currently at {progress} / going until {end_time}", end="\r")
+                infobox.update_message(f"Progress: currently at {progress} / going until {end_time}")
+
     print("FFMPEG has finished processing.")
+    infobox.close()
 
     ffmpeg_process.terminate()
 

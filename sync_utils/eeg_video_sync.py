@@ -2,6 +2,7 @@ import ffmpeg
 import pandas as pd
 import datetime as dt
 import os
+from .infobox import Infobox 
 
 def compare_video_eeg(video_path: str, csv_path: str, video_duration: float) -> tuple[float, float]:
     """
@@ -37,7 +38,7 @@ def compare_video_eeg(video_path: str, csv_path: str, video_duration: float) -> 
 
     # Extract initial timestamp from the CSV
     initial_csv_timestamp = df["timestamps"][0]
-
+    last_csv_timestamp = df["timestamps"][-1]
         
     # Calculate the adjustment needed
     time_difference = initial_csv_timestamp - video_creation_timestamp
@@ -45,10 +46,14 @@ def compare_video_eeg(video_path: str, csv_path: str, video_duration: float) -> 
     # EEG data is the last thing that will start before session starts.
     # Therefore 99% of the time the above calculation will be a positive value.
 
+    # The new length of the video
+    # We will add it to start time to find the end time
+    new_duration = last_csv_timestamp - initial_csv_timestamp
+
     if time_difference > 0:
         # Video starts later than CSV
         start_time = abs(time_difference)
-        end_time = video_duration
+        end_time = start_time + new_duration
     else:
         # Note: This does not really make sense,
         # Someone should check it out.
@@ -58,7 +63,7 @@ def compare_video_eeg(video_path: str, csv_path: str, video_duration: float) -> 
 
     return (start_time, end_time)
 
-def cut_video_from_start_end(video_path: str, start_time: float, end_time: float) -> str:
+def cut_video_from_start_end(video_path: str, start_time: float, end_time: float, temp_output_path: str) -> str:
     """
         Opens a FFMPEG subprocess and cuts the video provided
         so that it starts at start_time seconds and ends at end_time.
@@ -78,43 +83,42 @@ def cut_video_from_start_end(video_path: str, start_time: float, end_time: float
         TODO Better temp file handling
     """
 
+    infobox = Infobox("EEG Video Sync")
+    infobox.show()
+
     # current_time = dt.datetime.now().strftime("%d%m%Y%H%M%S")
     # temp_file_name = f"temporary_{current_time}"
 
-    temp_output_file_name = "temporary.mp4"
-
     eeg_sync_video = ffmpeg.input(video_path, ss=start_time, to=end_time)
-    out = ffmpeg.output(eeg_sync_video, temp_output_file_name).compile()
+    out = ffmpeg.output(eeg_sync_video, temp_output_path).compile()
 
     import subprocess
     import datetime # For printing progress
     import os
-
-    try:
-        os.remove("./temporary.mp4")
-    except FileNotFoundError:
-        print("File does not exist, continuing.")
 
     # Run the FFMPEG subprocess
     try:
         ffmpeg_process = subprocess.Popen(out, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     except OSError:
         print("OSError")
+        return
     except ValueError:
         print("ValueError: Cannot run FFMPEG with given parameters.")
+        return
 
     end_time = str(datetime.timedelta(seconds=end_time)) # Used for printing the last point of the video
     # Print the progress that ffmpeg outputs
+    infobox.update_message("FFMPEG is starting, please wait a couple minutes.")
     print("FFMPEG is starting, please wait a couple minutes.")
     for line in ffmpeg_process.stdout:
         # for all output from ffmpeg
-        print(line)
+        # print(line)
 
         # If you would like to print it in a simpler format
         # This shows how much of the video you processed
-        # if line.startswith("out_time="):
-        #     progress = line.split("=")[1]
-        #     print(f"Progress: currently at {progress} / going until {end_time}", end="\r")
-    print("FFMPEG has finished processing.")
+        if line.startswith("out_time="):
+            progress = line.split("=")[1]
+            print(f"Progress: currently at {progress} / going until {end_time}", end="\r")
+            infobox.update_message(f"Progress: currently at {progress} / going until {end_time}")
 
-    return temp_output_file_name
+    print("FFMPEG has finished processing.")
