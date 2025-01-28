@@ -38,7 +38,7 @@ def compare_video_eeg(video_path: str, csv_path: str, video_duration: float) -> 
 
     # Extract initial timestamp from the CSV
     initial_csv_timestamp = df["timestamps"][0]
-    last_csv_timestamp = df["timestamps"][-1]
+    last_csv_timestamp = df["timestamps"].iloc[-1]
         
     # Calculate the adjustment needed
     time_difference = initial_csv_timestamp - video_creation_timestamp
@@ -90,7 +90,7 @@ def cut_video_from_start_end(video_path: str, start_time: float, end_time: float
     # temp_file_name = f"temporary_{current_time}"
 
     eeg_sync_video = ffmpeg.input(video_path, ss=start_time, to=end_time)
-    out = ffmpeg.output(eeg_sync_video, temp_output_path).compile()
+    out = ffmpeg.output(eeg_sync_video, temp_output_path, vcodec="copy", acodec="copy").compile()
 
     import subprocess
     import datetime # For printing progress
@@ -116,8 +116,11 @@ def cut_video_from_start_end(video_path: str, start_time: float, end_time: float
 
         # If you would like to print it in a simpler format
         # This shows how much of the video you processed
-        if line.startswith("out_time="):
-            progress = line.split("=")[1]
+        if line.startswith("frame="):
+            all_info = line.split(" ") 
+            for elem in all_info:
+                if elem.startswith("time"):
+                    progress = elem.split("=")[1]
             print(f"Progress: currently at {progress} / going until {end_time}", end="\r")
             infobox.update_message(f"Progress: currently at {progress} / going until {end_time}")
 
