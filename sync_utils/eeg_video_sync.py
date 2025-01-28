@@ -79,6 +79,7 @@ def cut_video_from_start_end(video_path: str, start_time: float, end_time: float
         - start_time (float): When to start the video, in seconds
         - end_time (float): When to end the video, in seconds
 
+        
         TODO Check initially if start and end times are valid.
         TODO Better temp file handling
     """
@@ -91,7 +92,6 @@ def cut_video_from_start_end(video_path: str, start_time: float, end_time: float
 
     eeg_sync_video = ffmpeg.input(video_path, ss=start_time, to=end_time)
     out = ffmpeg.output(eeg_sync_video, temp_output_path, vcodec="copy", acodec="copy").compile()
-
     import subprocess
     import datetime # For printing progress
     import os
@@ -112,16 +112,16 @@ def cut_video_from_start_end(video_path: str, start_time: float, end_time: float
     print("FFMPEG is starting, please wait a couple minutes.")
     for line in ffmpeg_process.stdout:
         # for all output from ffmpeg
-        # print(line)
+        print(line)
 
         # If you would like to print it in a simpler format
         # This shows how much of the video you processed
-        if line.startswith("frame="):
-            all_info = line.split(" ") 
-            for elem in all_info:
-                if elem.startswith("time"):
-                    progress = elem.split("=")[1]
-            print(f"Progress: currently at {progress} / going until {end_time}", end="\r")
-            infobox.update_message(f"Progress: currently at {progress} / going until {end_time}")
+        all_info = line.split(" ") 
+        for elem in all_info:
+            if elem.startswith("time"):
+                progress = elem.split("=")[1]
+                print(f"Progress: currently at {progress} / going until {end_time}", end="\r")
+                infobox.update_message(f"Progress: currently at {progress} / going until {end_time}")
 
+    infobox.close()
     print("FFMPEG has finished processing.")

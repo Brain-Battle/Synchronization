@@ -1,6 +1,6 @@
 import vlc
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox,
+    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox,
     QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame, QSizePolicy
 )
 import matplotlib
@@ -18,7 +18,10 @@ import datetime
 
 # Imports for preview and export
 from sync_utils.audio_analysis import find_all_delays_with_pivot, find_all_durations
-from sync_utils.video_sync import generate_single_preview, generate_grid_command, run_ffmpeg_subprocess
+from sync_utils.video_sync import ( 
+    generate_single_preview_optimized, generate_single_preview, 
+    generate_grid_command, run_ffmpeg_subprocess 
+)
 from sync_utils.eeg_video_sync import compare_video_eeg, cut_video_from_start_end
 from sync_utils.infobox import Infobox
 import tempfile
@@ -256,9 +259,15 @@ class VideoSyncApp(QWidget):
         self.auto_sync_btn.setStyleSheet("background-color: #FFFFFF;")
         self.auto_sync_btn.clicked.connect(self.auto_sync)
 
+        self.auto_process_btn = QPushButton('Auto Process Folder')
+        self.auto_process_btn.setStyleSheet("background-color: #FFFFFF;")
+        self.auto_process_btn.clicked.connect(self.auto_process)
+
         slider_panel_2.addWidget(self.upload_eeg_btn_1)
         slider_panel_2.addWidget(self.upload_eeg_btn_2)
         slider_panel_2.addWidget(self.auto_sync_btn)
+        slider_panel_2.addWidget(self.auto_process_btn)
+
 
         self.play_pause_btn = QPushButton('Play/Pause')
         self.play_pause_btn.setStyleSheet("background-color: #FFFFFF;")
@@ -301,7 +310,7 @@ class VideoSyncApp(QWidget):
             timecode_index = self.timecode_select.currentIndex()
 
         video_preview_commands = []
-        temp_output_paths = []
+        temp_output_paths = [None, None, None, None]
 
         # Process the longest video with EEG first
         # This step is skipped if there is no EEG data
@@ -328,7 +337,7 @@ class VideoSyncApp(QWidget):
             progress_dialog.update_message(f"Generating command for video {index}.")
             command, new_duration = generate_single_preview(path, delays[index], durations[index], temp_output_path, max_delay)
 
-            temp_output_paths.append(temp_output_path)
+            temp_output_paths[index] = temp_output_path
             video_preview_commands.append(command)
             durations[index] = new_duration
 
@@ -368,6 +377,95 @@ class VideoSyncApp(QWidget):
                                                      output_file_name_with_extension=output_file)
         
         run_ffmpeg_subprocess(export_command, final_duration)
+
+    def auto_process(self):
+        folder_path = QFileDialog.getExistingDirectory(self, "Select Main Folder")
+        if not folder_path:
+            QMessageBox.warning(self, "Error", "No folder selected.")
+            return
+
+        infobox = Infobox("Auto Folder Processing")
+
+        subfolders = [os.path.join(folder_path, d) for d in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, d))]
+        total_subfolders = len(subfolders)
+
+        if total_subfolders == 0:
+            infobox.close()
+            QMessageBox.warning(self, "Error", "No subfolders found in the selected directory.")
+            return
+
+        for index, subfolder in enumerate(subfolders):
+            QApplication.processEvents()
+
+            infobox.update_message(f"Processing subfolder {subfolder}")
+
+            # Process files in subfolder
+            self.process_folder(subfolder)
+
+        
+        infobox.close()
+
+        QMessageBox.information(self, "Success", "All folders have been processed.")
+
+    def process_folder(self, folder_path):
+        infobox = Infobox(f"Processing Folder {os.path.basename(folder_path)}")
+        video_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(('.mp4', '.avi', '.mov'))]
+        csv_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.csv')]
+
+        if len(video_files) < 4 or len(csv_files) < 1:
+            infobox.close()
+            print(f"Insufficient files in {folder_path}. Skipping.")
+            return
+        
+        video_files = sorted(video_files)
+
+        # Assume the first CSV file for EEG processing
+        eeg_file = csv_files[0]
+
+        infobox.update_message("Finding the durations of the video.")
+        durations = find_all_durations(self.video_paths)
+
+        # We take longest video as basis
+        timecode_index = np.argmax(durations)
+
+        infobox.update_message("Syncing EEG with the longest video.")
+        start_time, end_time = compare_video_eeg(video_files[timecode_index], eeg_file, durations[timecode_index])
+
+        temp_name = f"temporary_eeg_sync_{datetime.datetime.now().strftime('%d%m%Y%H%M%S')}.mp4"
+        temp_output_path = self.temp_folder.name + f"\\{temp_name}"
+
+        cut_video_from_start_end(video_files[timecode_index], start_time, end_time, temp_output_path)
+        
+        video_files[timecode_index] = temp_output_path
+        
+        infobox.update_message("Finding all delays.")
+        delays = find_all_delays_with_pivot(video_files, timecode_index)
+        max_delay = max(delays)
+
+        temp_output_paths = [None, None, None, None] 
+        video_process_commands = []
+
+        for index, path in enumerate(video_files):
+            temp_name = f"temporary_vid_{datetime.datetime.now().strftime('%d%m%Y%H%M%S')}_{index}.mp4"
+            temp_output_path = self.temp_folder.name + f"\\{temp_name}"
+            command, new_duration = generate_single_preview(path, delays[index], durations[index], temp_output_path, max_delay)
+
+            temp_output_paths[index] = temp_output_path
+            video_process_commands.append(command)
+            durations[index] = new_duration
+
+        for index, command in enumerate(video_process_commands):
+            infobox.update_message(f"Processing video {index}.")
+            run_ffmpeg_subprocess(command, durations[index], debug=True)
+
+        output_name = f"{os.path.basename(folder_path)}.mp4"
+
+        infobox.update_message("Exporting the result.")
+        export_command, final_duration = generate_grid_command(temp_output_paths, delays, durations, 
+                                                     output_file_name_with_extension=output_name)
+        
+        run_ffmpeg_subprocess(export_command, final_duration)
+
 
     def upload_eeg_1(self):
         # File dialog to select the EEG CSV file

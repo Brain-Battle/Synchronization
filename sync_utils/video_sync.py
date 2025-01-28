@@ -6,7 +6,6 @@ import tempfile
 from .infobox import Infobox
 
 
-
 def generate_single_preview(video_path: str, delay: float, duration: float, output_path: str, max_delay: float = 0):
     """
         Cuts a given video by its corresponding delay
@@ -25,17 +24,50 @@ def generate_single_preview(video_path: str, delay: float, duration: float, outp
     # If the delay of the video is negative:
     if delay < 0:
         # We trim the video from the start
-        video_cut = ffmpeg.trim(video, start=round(abs(delay), 2)).setpts("PTS-STARTPTS")
-        audio_cut = ffmpeg.filter(audio, "atrim", start=round(abs(delay), 2)).filter("asetpts", "PTS-STARTPTS")
+        video_cut = ffmpeg.trim(video, start=round(abs(delay), 3)).setpts("PTS-STARTPTS")
+        audio_cut = ffmpeg.filter(audio, "atrim", start=round(abs(delay), 3)).filter("asetpts", "PTS-STARTPTS")
 
         new_duration -= round(delay)
 
     else: # If the delay is positive
         # We delay/push the videos start by the amount
-        video_cut = ffmpeg.filter(video, "tpad", start_duration=round(delay, 2))
+        video_cut = ffmpeg.filter(video, "tpad", start_duration=round(delay, 3))
         audio_cut = ffmpeg.filter(audio, "adelay", delays=int(round(delay, 3) * 1000), all=1)
 
-    out = ffmpeg.output(audio_cut, video_cut, output_path, acodec="aac", vcodec="libx264", pix_fmt="yuv420p", crf=27, preset="ultrafast", progress="pipe:1", ss=max_delay)
+    out = ffmpeg.output(audio_cut, video_cut, output_path, acodec="aac", vcodec="libx264", pix_fmt="yuv420p", crf=23, preset="ultrafast", progress="pipe:1", ss=max_delay)
+
+    command = out.compile()
+
+    return command, new_duration
+
+def generate_single_preview_optimized(video_path: str, delay: float, duration: float, output_path: str, max_delay: float = 0):
+    """
+        DO NOT USE IT IS BUGGY
+        Cuts a given video by its corresponding delay
+
+        Returns:
+        - out (str) -> The output command to run with ffmpeg.
+        - new_duration (float) -> new duration of the video
+    """
+    # output_file_name = f"temporary_vid_{datetime.datetime.now().strftime("%d%m%Y%H%M%S")}"
+    
+    video = ffmpeg.input(video_path)
+    audio = video.audio
+
+    new_duration = duration
+
+    video_cut_due_to_delay = 0
+
+    # If the delay of the video is negative:
+    if delay < 0:
+        # We trim the video from the start
+        video_cut_due_to_delay = round(abs(delay), 2)
+
+        new_duration -= video_cut_due_to_delay
+
+    resulting_cut = max_delay + video_cut_due_to_delay
+
+    out = ffmpeg.output(audio, video, output_path, acodec="copy", vcodec="copy", progress="pipe:1", ss=resulting_cut)
 
     command = out.compile()
 
@@ -69,7 +101,7 @@ def generate_grid_command(all_video_paths: list[str], delays: list[float], durat
     else:
         stop_duration = min(durations)
 
-    out = ffmpeg.output(audio_stream, video_scaled, output_file_name_with_extension, acodec="aac", vcodec="libx264", pix_fmt="yuv420p", crf=21, preset="superfast", progress="pipe:1", to=stop_duration)
+    out = ffmpeg.output(audio_stream, video_scaled, output_file_name_with_extension, acodec="aac", vcodec="libx264", pix_fmt="yuv420p", crf=24, preset="superfast", progress="pipe:1", to=stop_duration)
 
     # Compile command will return the terminal command to run FFMPEG as a string
     command = out.compile()
