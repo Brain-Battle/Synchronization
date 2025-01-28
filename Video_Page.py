@@ -15,6 +15,12 @@ import subprocess
 import pandas as pd
 import datetime
 
+# Imports for preview and export
+from sync_utils.audio_analysis import find_all_delays, find_all_durations
+from sync_utils.video_sync import generate_single_preview, generate_grid_command, run_ffmpeg_subprocess
+from sync_utils.eeg_video_sync import compare_video_eeg, cut_video_from_start_end
+import tempfile
+
 from prototype import autosync
 from newLayout import HighlightSlider
 
@@ -50,6 +56,12 @@ class VideoSyncApp(QWidget):
         self.timer = QTimer(self)
         self.timer.setInterval(100)
         self.timer.start()
+
+        self.temp_folder = tempfile.TemporaryDirectory() 
+        self.temp_video_paths = []
+
+        self._durations = []
+        self._delays = []
 
     def initUI(self):
         self.setWindowTitle('BattleUI')
@@ -222,7 +234,7 @@ class VideoSyncApp(QWidget):
 
         self.auto_sync_btn = QPushButton('Auto Sync')
         self.auto_sync_btn.setStyleSheet("background-color: #FFFFFF;")
-        self.auto_sync_btn.clicked.connect(self.auto_sync_videos)
+        self.auto_sync_btn.clicked.connect(self.auto_sync)
 
         slider_panel_2.addWidget(self.upload_eeg_btn_1)
         slider_panel_2.addWidget(self.upload_eeg_btn_2)
@@ -235,7 +247,7 @@ class VideoSyncApp(QWidget):
 
         self.export_btn = QPushButton('Export')
         self.export_btn.setStyleSheet("background-color: #FFFFFF;")
-        self.export_btn.clicked.connect(self.merge_videos)
+        self.export_btn.clicked.connect(self.export)
         slider_panel_2.addWidget(self.export_btn)
 
         bottom_panel.addLayout(slider_panel)
@@ -276,6 +288,63 @@ class VideoSyncApp(QWidget):
         except Exception as e:
             print(f"Error during autosync: {e}")
 
+    def auto_sync(self):
+        for path in self.video_paths:
+            if path == None:
+                print("Please input all videos.")
+                return
+        
+        delays = find_all_delays(self.video_paths)
+        durations = find_all_durations(self.video_paths)
+        max_delay = max(delays) 
+
+        video_preview_commands = []
+        temp_output_paths = []
+
+        for index, path in enumerate(self.video_paths):
+            temp_name = f"temporary_vid_{datetime.datetime.now().strftime('%d%m%Y%H%M%S')}_{index}.mp4"
+            temp_output_path = self.temp_folder.name + f"\\{temp_name}"
+
+            command, new_duration = generate_single_preview(path, delays[index], durations[index], temp_output_path, max_delay)
+            print(command)
+
+            temp_output_paths.append(temp_output_path)
+            video_preview_commands.append(command)
+            durations[index] = new_duration
+
+        for index, command in enumerate(video_preview_commands):
+            run_ffmpeg_subprocess(command, durations[index])
+
+        self.temp_video_paths = temp_output_paths
+
+        new_medias = [QMediaContent(QUrl.fromLocalFile(path)) for path in self.temp_video_paths]
+
+        for index, player in enumerate(self.media_players):
+            player.setMedia(new_medias[index]) 
+            player.positionChanged.connect(self.position_changed)
+            player.durationChanged.connect(self.duration_changed)
+
+        self._durations = durations
+        self._delays = delays
+
+        print("Ready to export.")
+
+    def export(self):
+        output_file = QFileDialog.getSaveFileName(
+            self, "Save Merged Video", "", "Video Files (*.mp4 *.avi *.mov);;All Files (*)")[0]
+        if not output_file:
+            return
+        
+        null_media = QMediaContent(None)
+
+        self.media_players = [player.setMedia(null_media) for player in self.media_players]
+
+        export_command, final_duration = generate_grid_command(self.temp_video_paths, self._delays, self._durations, 
+                                                     output_file_name_with_extension=output_file)
+        
+        print(export_command)
+        
+        run_ffmpeg_subprocess(export_command, final_duration)
 
     def upload_eeg_1(self):
         # File dialog to select the EEG CSV file
@@ -364,7 +433,6 @@ class VideoSyncApp(QWidget):
         toolbar.setFixedHeight(25)
         self.eeg_plot_layout_2.addWidget(toolbar)
         self.eeg_plot_layout_2.addWidget(canvas)       
-
 
     def upload_video(self, video_num):
         options = QFileDialog.Options()
@@ -483,6 +551,9 @@ class VideoSyncApp(QWidget):
     def duration_changed(self, duration):
         # Update the slider range
         self.time_slider.setRange(0, duration)
+
+    def clean_up_temp(self):
+        self.temp_folder.cleanup()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

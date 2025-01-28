@@ -171,6 +171,9 @@ def find_all_delays(video_paths: List[str]) -> List[float]:
 
     return delays
 
+def find_all_durations(video_paths: List[str]) -> List[float]:
+    return [VideoFileClip(path).duration for path in video_paths]
+
 
 def find_all_delays_with_pivot(video_paths: List[str], pivot_index: int) -> List[float]:
     """
