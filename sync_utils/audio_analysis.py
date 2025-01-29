@@ -211,12 +211,12 @@ def find_all_delays_with_pivot(video_paths: List[str], pivot_index: int) -> List
         if i != pivot_index:
             corr = signal.correlate(processed_audios[pivot_index], 
                                     processed_audios[i], 
-                                    mode="same", 
+                                    mode="valid", 
                                     method="fft")
             
             lags = signal.correlation_lags(len(processed_audios[pivot_index]), 
                                            len(processed_audios[i]), 
-                                           mode="same")
+                                           mode="valid")
             
             max_corr = np.argmax(corr)
             time_delay = lags[max_corr] / 44100  # Convert to seconds

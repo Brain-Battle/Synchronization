@@ -1,7 +1,7 @@
 import vlc
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox,
-    QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame, QSizePolicy
+    QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame, QSizePolicy, QTextBrowser
 )
 import matplotlib
 import matplotlib.pyplot as plt
@@ -356,6 +356,7 @@ class VideoSyncApp(QWidget):
 
         self._durations = durations
         self._delays = delays
+        print(self._delays)
 
         progress_dialog.update_message(f"Auto-sync complete.")
 
@@ -385,6 +386,7 @@ class VideoSyncApp(QWidget):
             return
 
         infobox = Infobox("Auto Folder Processing")
+        infobox.show()
 
         subfolders = [os.path.join(folder_path, d) for d in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, d))]
         total_subfolders = len(subfolders)
@@ -409,8 +411,9 @@ class VideoSyncApp(QWidget):
 
     def process_folder(self, folder_path):
         infobox = Infobox(f"Processing Folder {os.path.basename(folder_path)}")
-        video_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(('.mp4', '.avi', '.mov'))]
-        csv_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.csv')]
+        infobox.show()
+        video_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(('.mp4', '.avi', '.mov', '.MP4', '.AVI', '.MOV'))]
+        csv_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(('.csv', ".CSV"))]
 
         if len(video_files) < 4 or len(csv_files) < 1:
             infobox.close()
@@ -423,7 +426,7 @@ class VideoSyncApp(QWidget):
         eeg_file = csv_files[0]
 
         infobox.update_message("Finding the durations of the video.")
-        durations = find_all_durations(self.video_paths)
+        durations = find_all_durations(video_files)
 
         # We take longest video as basis
         timecode_index = np.argmax(durations)
@@ -629,6 +632,34 @@ class VideoSyncApp(QWidget):
 
     def clean_up_temp(self):
         self.temp_folder.cleanup()
+
+    def show_tutorial(self):
+        tutorial_window = QWidget()
+        tutorial_window.setWindowTitle("App Tutorial")
+        tutorial_window.setGeometry(150, 150, 600, 400)
+
+        layout = QVBoxLayout()
+
+        tutorial_text = QTextBrowser()
+        tutorial_text.setText(
+            """
+            <h1>Welcome to VideoSyncApp Tutorial</h1>
+            <p>1. <b>Upload Videos:</b> Use the 'Upload' buttons to add your videos.</p>
+            <p>2. <b>Edit Videos:</b> Click 'Edit' for trimming or resizing options.</p>
+            <p>3. <b>EEG Processing:</b> Upload EEG CSV files for visualization.</p>
+            <p>4. <b>Auto Process:</b> Organize your videos and EEG files in a folder structure, and let the app process them automatically.</p>
+            <p>5. <b>Export:</b> Use the 'Export' button to save merged videos and EEG data.</p>
+            """
+        )
+        layout.addWidget(tutorial_text)
+
+        close_button = QPushButton("Close", tutorial_window)
+        close_button.clicked.connect(tutorial_window.close)
+        layout.addWidget(close_button)
+
+        tutorial_window.setLayout(layout)
+        tutorial_window.show()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
