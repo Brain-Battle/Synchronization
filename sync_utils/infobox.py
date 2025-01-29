@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 class Infobox(QWidget):
     def __init__(self, window_title: str = "Info", parent=None):
         super().__init__(parent)
-        self.width = 200
+        self.width = 480
         self.height = 100
 
         screen_geometry = QDesktopWidget().availableGeometry()

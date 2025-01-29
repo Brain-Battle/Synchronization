@@ -25,7 +25,7 @@ def generate_single_preview(video_path: str, delay: float, duration: float, outp
     if delay < 0:
         # We trim the video from the start
         video_cut = ffmpeg.trim(video, start=round(abs(delay), 2)).setpts("PTS-STARTPTS")
-        audio_cut = ffmpeg.filter(audio, "atrim", start=round(abs(delay), 2)).setpts("PTS-STARTPTS")
+        audio_cut = ffmpeg.filter(audio, "atrim", start=round(abs(delay), 2)).filter("asetpts", "PTS-STARTPTS")
 
         new_duration -= round(delay)
 
@@ -263,13 +263,12 @@ def run_ffmpeg_subprocess(ffmpeg_command: str, resulting_duration: float, debug:
         if debug:
             print(line)
 
-        else:
-            # If you would like to print it in a simpler format
-            # This shows how much of the video you processed
-            if line.startswith("out_time="):
-                progress = line.split("=")[1]
-                print(f"Progress: currently at {progress} / going until {end_time}", end="\r")
-                infobox.update_message(f"Progress: currently at {progress} / going until {end_time}")
+        # If you would like to print it in a simpler format
+        # This shows how much of the video you processed
+        if line.startswith("out_time="):
+            progress = line.split("=")[1]
+            print(f"Progress: currently at {progress} / going until {end_time}", end="\r")
+            infobox.update_message(f"Progress: currently at {progress} / going until {end_time}")
 
     print("FFMPEG has finished processing.")
     infobox.close()

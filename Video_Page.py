@@ -1,6 +1,6 @@
 import vlc
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QComboBox,
     QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame, QSizePolicy
 )
 import matplotlib
@@ -201,7 +201,6 @@ class VideoSyncApp(QWidget):
         self.eeg_data_display_1.setStyleSheet("border: 2px solid black;")
         self.eeg_plot_layout_1 = QVBoxLayout(self.eeg_data_display_1)
 
-
         self.eeg_data_display_2 = QLabel('EEG Data Display 2')
         self.eeg_data_display_2 = QFrame()  # Use QFrame as a container
         self.eeg_data_display_2.setFixedSize(800, 150)
@@ -229,8 +228,21 @@ class VideoSyncApp(QWidget):
         slider_panel = QHBoxLayout()
         slider_panel_2 = QHBoxLayout()
 
-        self.timecode_checkbox = QCheckBox('Timecode')
-        slider_panel_2.addWidget(self.timecode_checkbox)
+    
+        timecode_select_panel = QVBoxLayout()
+
+        self.timecode_label  = QLabel()
+        self.timecode_label.setText("Which Video's Timecode?")
+        timecode_select_panel.addWidget(self.timecode_label)
+        self.timecode_select = QComboBox()
+        self.timecode_select.addItem("Video 0 (Top-Left)")
+        self.timecode_select.addItem("Video 1 (Top-Right)")
+        self.timecode_select.addItem("Video 2 (Bottom-Left)")
+        self.timecode_select.addItem("Video 3 (Bottom-Right)")
+        self.timecode_select.addItem("No Selection")
+        self.timecode_select.setCurrentIndex(4)
+        timecode_select_panel.addWidget(self.timecode_select)
+        slider_panel_2.addLayout(timecode_select_panel)
 
         self.upload_eeg_btn_1 = QPushButton('Upload EEG 1')
         self.upload_eeg_btn_1.clicked.connect(self.upload_eeg_1)
@@ -280,7 +292,13 @@ class VideoSyncApp(QWidget):
 
         progress_dialog.update_message("Analyzing durations...")
         durations = find_all_durations(self.video_paths)
-        max_duration_index = np.argmax(durations)
+
+        # If index selected in timecode selector indicates none
+        # set it to the video with longest duration
+        if self.timecode_select.currentIndex() == 4:
+            timecode_index = np.argmax(durations)
+        else:
+            timecode_index = self.timecode_select.currentIndex()
 
         video_preview_commands = []
         temp_output_paths = []
@@ -290,18 +308,18 @@ class VideoSyncApp(QWidget):
         if self.eeg_file_name_1 != None or self.eeg_file_name_2 != None:
             progress_dialog.update_message("EEG data detected. First synchronizing longest video with EEG.")
             csv_file = self.eeg_file_name_1 if self.eeg_file_name_1 else self.eeg_file_name_2
-            start_time, end_time = compare_video_eeg(self.video_paths[max_duration_index], csv_file, durations[max_duration_index])
-            temp_name = f"temporary_eeg_sync_{datetime.datetime.now().strftime('%d%m%Y%H%M%S')}_{index}.mp4"
+            start_time, end_time = compare_video_eeg(self.video_paths[timecode_index], csv_file, durations[timecode_index])
+            temp_name = f"temporary_eeg_sync_{datetime.datetime.now().strftime('%d%m%Y%H%M%S')}.mp4"
             temp_output_path = self.temp_folder.name + f"\\{temp_name}"
 
-            progress_dialog.update_message(f"Synchronizing video {max_duration_index} with EEG.")
-            cut_video_from_start_end(self.video_paths[max_duration_index], start_time, end_time, temp_output_path)
+            progress_dialog.update_message(f"Synchronizing video {timecode_index} with EEG.")
+            cut_video_from_start_end(self.video_paths[timecode_index], start_time, end_time, temp_output_path)
 
-            video_paths[max_duration_index] = temp_output_path
-            durations[max_duration_index] = end_time - start_time
+            video_paths[timecode_index] = temp_output_path
+            durations[timecode_index] = end_time - start_time
 
         progress_dialog.update_message(f"Finding all delays by analyzing audios.")
-        delays = find_all_delays_with_pivot(video_paths, max_duration_index)
+        delays = find_all_delays_with_pivot(video_paths, timecode_index)
         max_delay = max(delays)
         
         for index, path in enumerate(video_paths):
@@ -316,7 +334,7 @@ class VideoSyncApp(QWidget):
 
         for index, command in enumerate(video_preview_commands):
             progress_dialog.update_message(f"Processing video {index}...")
-            run_ffmpeg_subprocess(command, durations[index])
+            run_ffmpeg_subprocess(command, durations[index], debug=True)
 
         self.temp_video_paths = temp_output_paths
 
