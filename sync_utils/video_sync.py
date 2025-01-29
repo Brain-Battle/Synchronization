@@ -4,8 +4,7 @@ import datetime
 import subprocess
 import tempfile
 from .infobox import Infobox
-
-
+import time  # Import time module for delay
 
 def generate_single_preview(video_path: str, delay: float, duration: float, output_path: str, max_delay: float = 0):
     """
@@ -41,6 +40,7 @@ def generate_single_preview(video_path: str, delay: float, duration: float, outp
 
     return command, new_duration
 
+"""
 def generate_grid_command(all_video_paths: list[str], delays: list[float], durations: list[float], output_file_name_with_extension: str, video_end_time: float | None = None):
     videos = [ffmpeg.input(path) for path in all_video_paths]
 
@@ -76,6 +76,67 @@ def generate_grid_command(all_video_paths: list[str], delays: list[float], durat
     resulting_duration = stop_duration
 
     return command, resulting_duration
+"""
+
+def generate_grid_command(all_video_paths: list[str], delays: list[float], durations: list[float], output_file_name_with_extension: str, video_end_time: float | None = None):
+    videos = [ffmpeg.input(path) for path in all_video_paths]
+    xstacked = ffmpeg.filter(videos, "xstack", inputs=4, layout="0_0|0_h0|w0_0|w0_h0")
+
+    max_delay_idx = np.argmax(delays)
+    audio_stream = videos[max_delay_idx].audio
+
+    video_scaled = (
+        xstacked
+        .filter("scale", 3840, 2160)
+        .filter("fps", fps=60, round="up")
+    )
+
+    text_string = (
+        "Time: %{eif:trunc(t/60):d}m" 
+        "%{eif:mod(t,60):d}s"          
+        "%{eif:mod(t*1000,1000):d}ms "
+        "Frame: %{n}"
+    )
+
+    video_with_timestamp = ffmpeg.filter(
+        video_scaled,
+        "drawtext",
+        fontfile="C:/Users/Asus/OneDrive/Desktop/CIP/Synchronization/downloaded_fonts/Droid_Sans_Mono_Slashed_400.ttf",
+        text=text_string,
+        x="(w-tw)/2",
+        y="h-(2*lh)",
+        fontsize="72",
+        fontcolor="white",
+        box="1",
+        boxcolor="black@0.4",
+        expansion="normal"
+    )
+
+    stop_duration = video_end_time if video_end_time else min(durations)
+
+    out = (
+        ffmpeg
+        .output(
+            audio_stream,
+            video_with_timestamp,
+            output_file_name_with_extension,
+            acodec="aac",
+            vcodec="libx264",
+            pix_fmt="yuv420p",
+            crf=21,
+            preset="superfast",
+            progress="pipe:1",
+            to=stop_duration
+        )
+    )
+
+    command = out.compile()
+    print("\n--- Compiled FFmpeg Command ---")
+    print(command)
+    
+    time.sleep(5)
+    
+    return command, stop_duration
 
 def generate_video_sync_command(all_video_paths: list[str], delays: list[float], durations: list[float], output_file_name_with_extension: str, video_end_time: float | None = None):
     """

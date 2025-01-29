@@ -349,7 +349,10 @@ class VideoSyncApp(QWidget):
         export_command, final_duration = generate_grid_command(self.temp_video_paths, self._delays, self._durations, 
                                                      output_file_name_with_extension=output_file)
         
-        run_ffmpeg_subprocess(export_command, final_duration)
+        # Buggin
+        print("FFMPEG Export Command:", export_command)
+
+        run_ffmpeg_subprocess(export_command, final_duration, debug=True)
 
     def upload_eeg_1(self):
         # File dialog to select the EEG CSV file
