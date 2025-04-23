@@ -1,46 +1,45 @@
+# Importing the VLC module to enable media playback capabilities
 import vlc
-from PyQt5.QtWidgets import (
+from PyQt5.QtWidgets import ( # PyQt5 GUI widgets and layout components
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QGridLayout, QSlider, QCheckBox, QFileDialog, QDesktopWidget, QFrame, QSizePolicy, QMessageBox
 )
-from PyQt5.QtCore import Qt, QTimer
-import sys
-import ffmpeg
-import os
+from PyQt5.QtCore import Qt, QTimer # Core PyQt5 classes: Qt for alignment/constants, QTimer for timing events
+import sys         # Provides access to system-specific parameters and functions
+import ffmpeg      # Used for handling audio/video processing via FFmpeg
+import os          # Provides functions to interact with the operating system (e.g. file paths)
 
 
-class AspectRatioFrame(QFrame):
-    def resizeEvent(self, event):
-        # Get the new width and calculate height based on 16:9 aspect ratio
-        width = self.width()
-        height = int(width * 9 / 16)
+class AspectRatioFrame(QFrame):      #QFrame that maintains a 16:9 aspect ratio on resize
+    def resizeEvent(self, event):    # Overriding the resize event to adjust height based on width
+        width = self.width()         # Get current width of the frame
+        height = int(width * 9 / 16) # Calculate height to maintain 16:9 ratio
 
-        # Set the fixed size for the QFrame
-        self.setFixedHeight(height)
-        super().resizeEvent(event)
+        self.setFixedHeight(height)  # Apply the calculated height to keep the aspect ratio
+        super().resizeEvent(event)   # Proceed with the default resize behavior
 
 
-class VideoSyncApp(QWidget):
+class VideoSyncApp(QWidget):  # Main GUI app for synchronized video playback
     def __init__(self):
         super().__init__()
-        self.width = 1200
-        self.height = 800
+        self.width = 1200       # Set default window width
+        self.height = 800       # Set default window height
         self.media_players = [None, None, None, None]
         self.video_widgets = [None, None, None, None]
         self.video_paths = [None, None, None, None]
-        self.initUI()
+        self.initUI() # Set up the UI components
         self.timer = QTimer(self)
         self.timer.setInterval(100)
-        self.timer.timeout.connect(self.update_slider_position)
+        self.timer.timeout.connect(self.update_slider_position) # Sync slider with video position
         self.timer.start()
 
     def initUI(self):
-        self.setWindowTitle('BattleUI')
-        self.setStyleSheet("background-color: #F3F3F1;")
+        self.setWindowTitle('BattleUI')   # Set the window title
+        self.setStyleSheet("background-color: #F3F3F1;")   # Set background color
         screen_geometry = QDesktopWidget().availableGeometry()
         screen_center_x = (screen_geometry.width() - self.width) // 2
         screen_center_y = (screen_geometry.height() - self.height) // 2
-        self.setGeometry(screen_center_x, screen_center_y, self.width, self.height)
+        self.setGeometry(screen_center_x, screen_center_y, self.width, self.height)  # Center the window on screen
 
         main_layout = QVBoxLayout()
         top_layout = QHBoxLayout()
@@ -53,7 +52,7 @@ class VideoSyncApp(QWidget):
         self.filename_1 = QLabel('Filename')
         self.upload_btn_1 = QPushButton('Upload Video 1')
         self.upload_btn_1.setStyleSheet("background-color: #FFFFFF;")
-        self.upload_btn_1.clicked.connect(lambda: self.upload_video(1))
+        self.upload_btn_1.clicked.connect(lambda: self.upload_video(1))   # Connect upload button to video 1 handler
         left_panel.addWidget(self.video_data_1)
         left_panel.addWidget(self.filename_1)
         left_panel.addWidget(self.upload_btn_1)
@@ -63,7 +62,7 @@ class VideoSyncApp(QWidget):
         self.filename_3 = QLabel('Filename')
         self.upload_btn_3 = QPushButton('Upload Video 3')
         self.upload_btn_3.setStyleSheet("background-color: #FFFFFF;")
-        self.upload_btn_3.clicked.connect(lambda: self.upload_video(3))
+        self.upload_btn_3.clicked.connect(lambda: self.upload_video(3)) # Connect upload button to video 3 handler
         left_panel.addWidget(self.upload_btn_3)
         left_panel.addWidget(self.video_data_3)
         left_panel.addWidget(self.filename_3)
@@ -76,7 +75,7 @@ class VideoSyncApp(QWidget):
         self.filename_2 = QLabel('Filename')
         self.upload_btn_2 = QPushButton('Upload Video 2')
         self.upload_btn_2.setStyleSheet("background-color: #FFFFFF;")
-        self.upload_btn_2.clicked.connect(lambda: self.upload_video(2))
+        self.upload_btn_2.clicked.connect(lambda: self.upload_video(2))    # Connect upload button to video 2 handler
         right_panel.addWidget(self.video_data_2)
         right_panel.addWidget(self.filename_2)
         right_panel.addWidget(self.upload_btn_2)
@@ -86,7 +85,7 @@ class VideoSyncApp(QWidget):
         self.filename_4 = QLabel('Filename')
         self.upload_btn_4 = QPushButton('Upload Video 4')
         self.upload_btn_4.setStyleSheet("background-color: #FFFFFF;")
-        self.upload_btn_4.clicked.connect(lambda: self.upload_video(4))
+        self.upload_btn_4.clicked.connect(lambda: self.upload_video(4))   # Connect upload button to video 4 handler
         right_panel.addWidget(self.upload_btn_4)
         right_panel.addWidget(self.video_data_4)
         right_panel.addWidget(self.filename_4)
