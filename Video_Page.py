@@ -69,6 +69,7 @@ class VideoSyncApp(QWidget):
 
         self.eeg_file_name_1 = None
         self.eeg_file_name_2 = None
+        self.eeg_file_name_3 = None
 
         self._durations = []
         self._delays = []
@@ -314,9 +315,16 @@ class VideoSyncApp(QWidget):
 
         # Process the longest video with EEG first
         # This step is skipped if there is no EEG data
-        if self.eeg_file_name_1 != None or self.eeg_file_name_2 != None:
+        if self.eeg_file_name_1 != None or self.eeg_file_name_2 != None or self.eeg_file_name_3 != None:
             progress_dialog.update_message("EEG data detected. First synchronizing longest video with EEG.")
-            csv_file = self.eeg_file_name_1 if self.eeg_file_name_1 else self.eeg_file_name_2
+            
+            if self.eeg_file_name_1:
+                csv_file = self.eeg_file_name_1
+            elif self.eeg_file_name_2:
+                csv_file = self.eeg_file_name_2
+            else:
+                csv_file = self.eeg_file_name_3
+
             start_time, end_time = compare_video_eeg(self.video_paths[timecode_index], csv_file, durations[timecode_index])
             temp_name = f"temporary_eeg_sync_{datetime.datetime.now().strftime('%d%m%Y%H%M%S')}.mp4"
             temp_output_path = self.temp_folder.name + f"\\{temp_name}"
