@@ -90,6 +90,25 @@ class VideoSyncApp(QWidget):  # Main GUI app for synchronized video playback
         right_panel.addWidget(self.video_data_4)
         right_panel.addWidget(self.filename_4)
 
+
+        """"
+
+        Create a central panel with a 2x2 grid layout to display four video widgets, 
+        each maintaining a 16:9 aspect ratio using AspectRatioFrame.
+
+        Store the video widgets in a list for easy access and arrange them in the grid: 
+        Video 1 (top-left), 
+        Video 2 (top-right), 
+        Video 3 (bottom-left),
+        Video 4 (bottom-right). 
+
+        Add the left, central, and right panels to the top layout with stretch factors 
+        to control their sizing, ensuring the central panel (videos) expands more. 
+        Create a bottom panel with an Export button to merge videos, and assemble all 
+        layouts into the main vertical layout for the window.
+
+        """
+
         # Central panel for video displays
         central_panel = QGridLayout()
         self.video_display_1 = AspectRatioFrame(self)
@@ -102,24 +121,41 @@ class VideoSyncApp(QWidget):  # Main GUI app for synchronized video playback
         central_panel.addWidget(self.video_display_3, 1, 0)
         central_panel.addWidget(self.video_display_4, 1, 1)
 
+        # Add left, central, and right panels to the top layout with stretch factors
         top_layout.addLayout(left_panel, 1)
         top_layout.addLayout(central_panel, 5)
         top_layout.addLayout(right_panel, 1)
 
+        # Create a bottom panel with an Export button for merging videos
         bottom_panel = QVBoxLayout()
         self.export_btn = QPushButton('Export')
         self.export_btn.setStyleSheet("background-color: #FFFFFF;")
         self.export_btn.clicked.connect(self.merge_videos)
         bottom_panel.addWidget(self.export_btn)
 
+        # Assemble top and bottom layouts into the main vertical layout
         main_layout.addLayout(top_layout)
         main_layout.addLayout(bottom_panel)
         self.setLayout(main_layout)
 
     def upload_video(self, video_num):
+
+        """
+        - Handle the upload of a video file for the specified video slot (1 to 4). 
+        - Open a file dialog to select a video file, store its path, and initialize 
+        a VLC MediaPlayer if not already created. 
+        - Link the player to the corresponding video widget, load the selected media,
+        - Update the filename label with the file path, enabling word wrapping for 
+        long names.
+        """
+
+        # Open a file dialog to select a video file for the specified video slot
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Video File", "",
                                                    "Video Files (*.mp4 *.avi *.mov);;All Files (*)", options=options)
+        
+
+        # Store the selected file path, initialize VLC MediaPlayer if needed, and load the media
         if file_name:
             self.video_paths[video_num - 1] = file_name
             if not self.media_players[video_num - 1]:
@@ -129,11 +165,22 @@ class VideoSyncApp(QWidget):  # Main GUI app for synchronized video playback
             media = vlc.Media(file_name)
             self.media_players[video_num - 1].set_media(media)
 
+            # Update the filename label with the selected file path
             filename_label = getattr(self, f"filename_{video_num}")
             filename_label.setText(f"Filename:\n{file_name}")
             filename_label.setWordWrap(True)
 
     def merge_videos(self):
+
+        """
+        - Merge the four loaded videos into a single output video using FFmpeg. 
+        - Collect file paths from filename labels, verify all four videos are loaded,
+        and prompt the user for an output file path. Resize each video to 640x360, 
+        concatenate them, and save the result. 
+        - Display error messages via a popup if videos are missing or if FFmpeg 
+        encounters an error during processing.
+        """
+                
         # Collect file paths for all videos
         file_paths = []
         for i in range(1, 5):  # Loop for videos 1 to 4
@@ -168,6 +215,13 @@ class VideoSyncApp(QWidget):  # Main GUI app for synchronized video playback
             self.show_error(f"An error occurred while merging videos: {str(e)}")
 
     def show_error(self, message):
+        
+        """
+        - Display an error message in a popup dialog using QMessageBox.
+        - Configure the dialog with a critical icon, set the title to 'Error',
+        and show the provided message to the user, waiting for their acknowledgment.
+        """
+                
         error_box = QMessageBox(self)
         error_box.setIcon(QMessageBox.Critical)
         error_box.setWindowTitle("Error")
