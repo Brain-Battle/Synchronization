@@ -138,19 +138,16 @@ class VideoSyncApp(QWidget):  # Main GUI app for synchronized video playback
         main_layout.addLayout(bottom_panel)
         self.setLayout(main_layout)
 
+    def upload_video(self, video_num):
 
         """
-
         - Handle the upload of a video file for the specified video slot (1 to 4). 
         - Open a file dialog to select a video file, store its path, and initialize 
         a VLC MediaPlayer if not already created. 
         - Link the player to the corresponding video widget, load the selected media,
         - Update the filename label with the file path, enabling word wrapping for 
         long names.
-
         """
-
-    def upload_video(self, video_num):
 
         # Open a file dialog to select a video file for the specified video slot
         options = QFileDialog.Options()
@@ -173,20 +170,17 @@ class VideoSyncApp(QWidget):  # Main GUI app for synchronized video playback
             filename_label.setText(f"Filename:\n{file_name}")
             filename_label.setWordWrap(True)
 
-
+    def merge_videos(self):
 
         """
-
         - Merge the four loaded videos into a single output video using FFmpeg. 
         - Collect file paths from filename labels, verify all four videos are loaded,
         and prompt the user for an output file path. Resize each video to 640x360, 
         concatenate them, and save the result. 
         - Display error messages via a popup if videos are missing or if FFmpeg 
         encounters an error during processing.
-
         """
-
-    def merge_videos(self):
+                
         # Collect file paths for all videos
         file_paths = []
         for i in range(1, 5):  # Loop for videos 1 to 4
@@ -220,17 +214,14 @@ class VideoSyncApp(QWidget):  # Main GUI app for synchronized video playback
         except Exception as e:
             self.show_error(f"An error occurred while merging videos: {str(e)}")
 
-
-
+    def show_error(self, message):
+        
         """
-
         - Display an error message in a popup dialog using QMessageBox.
         - Configure the dialog with a critical icon, set the title to 'Error',
         and show the provided message to the user, waiting for their acknowledgment.
-
         """
-
-    def show_error(self, message):
+                
         error_box = QMessageBox(self)
         error_box.setIcon(QMessageBox.Critical)
         error_box.setWindowTitle("Error")
