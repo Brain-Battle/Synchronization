@@ -27,7 +27,7 @@ from sync_utils.infobox import Infobox
 import tempfile
 
 from prototype import autosync
-from newLayout import HighlightSlider
+from SingleVideoEditor import HighlightSlider
 
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtMultimediaWidgets import QVideoWidget
