@@ -2,3 +2,4 @@
 *.MTS
 *.MP4
 __pycache__
+.venv
