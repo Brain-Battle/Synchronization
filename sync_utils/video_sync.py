@@ -51,7 +51,7 @@ def generate_single_preview_optimized(video_path: str, delay: float, duration: f
     """
     # output_file_name = f"temporary_vid_{datetime.datetime.now().strftime("%d%m%Y%H%M%S")}"
     
-    video = ffmpeg.input(video_path)
+    video = ffmpeg.input(video_path, hwaccel="cuda", hwaccel_output_format="cuda")
     audio = video.audio
 
     new_duration = duration
@@ -67,7 +67,7 @@ def generate_single_preview_optimized(video_path: str, delay: float, duration: f
 
     resulting_cut = max_delay + video_cut_due_to_delay
 
-    out = ffmpeg.output(audio, video, output_path, acodec="copy", vcodec="copy", progress="pipe:1", ss=resulting_cut)
+    out = ffmpeg.output(audio, video, output_path, acodec="copy", vcodec="h264_nvenc", progress="pipe:1", ss=resulting_cut)
 
     command = out.compile()
 

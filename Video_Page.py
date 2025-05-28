@@ -53,8 +53,8 @@ class AspectRatioFrame(QFrame):
 class VideoSyncApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.width = 1200
-        self.height = 800
+        self.width = 1920
+        self.height = 1080
         self.media_players = [None, None, None, None]
         self.video_widgets = [None, None, None, None]
         self.video_paths = [None, None, None, None]
@@ -81,9 +81,10 @@ class VideoSyncApp(QWidget):
         screen_center_x = (screen_geometry.width() - self.width) // 2
         screen_center_y = (screen_geometry.height() - self.height) // 2
         self.setGeometry(screen_center_x, screen_center_y, self.width, self.height)
+        self.setFixedSize(1920, 1080) #change this
 
         main_layout = QVBoxLayout()
-        top_layout = QHBoxLayout()
+        top_layout = QHBoxLayout()#
 
         # Left panel with buttons for Video 1 (top) and Video 3 (bottom)
         left_panel = QVBoxLayout()
@@ -383,6 +384,16 @@ class VideoSyncApp(QWidget):
         run_ffmpeg_subprocess(export_command, final_duration, debug=True)
 
     def auto_process(self):
+        """
+            Processes a full folder of videos.
+
+            Arguments
+            - 
+            
+            Returns
+            - 
+            
+        """
         folder_path = QFileDialog.getExistingDirectory(self, "Select Main Folder")
         if not folder_path:
             QMessageBox.warning(self, "Error", "No folder selected.")
