@@ -1,4 +1,4 @@
-from camera_display import display_video_blocking
+from live_data_flow.camera_display import display_video_blocking
 
 from rich.console import Console
 console = Console()

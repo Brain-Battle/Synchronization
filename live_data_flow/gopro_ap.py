@@ -1,4 +1,4 @@
-from camera_control import GoProControl
+from live_data_flow.camera_control import GoProControl
 import asyncio
 import logging
 
