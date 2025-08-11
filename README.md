@@ -9,8 +9,13 @@ Auto-Sync works by calculating the cross-correlation between the audio extracts 
 
 ## Screenshots
 
+Base UI
 <img width="1920" height="1051" alt="Synchronization app demo 1" src="https://github.com/user-attachments/assets/3c7d4621-b08a-44de-b184-b0d8a776c46a" />
+
+Before synchronization
 <img width="1920" height="1009" alt="Synchronization app demo 2" src="https://github.com/user-attachments/assets/38df7108-411d-4f33-bf14-ea80b3a75529" />
+
+After synchronization
 <img width="1918" height="1000" alt="Synchronization app demo 3" src="https://github.com/user-attachments/assets/91443b07-72ac-4257-b218-91013af13811" />
 
 
