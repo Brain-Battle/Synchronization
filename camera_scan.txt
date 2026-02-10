@@ -1,0 +1,3 @@
+MSMF idx 0: 640x480 frame=False brightness=0.0
+MSMF idx 1: 640x360 frame=False brightness=0.0
+DSHOW idx 0: 640x480 frame=True brightness=0.0
